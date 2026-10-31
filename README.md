@@ -6,6 +6,7 @@
 - 玩家固定 1 号位，8 位 AI 旅人
 - 无联机；无 Key 时不需要后端，程序化 3D 暮林山舍，完整夜间、发言、投票、遗言、终局
 - 可选 Node 智能体代理：8 位 AI 旅人各自接入 OpenAI 兼容模型 / 灵矽角色人设
+- 规则弹窗内置 6 张角色卡插画（狼人、预言家、女巫、猎人、村民、守卫），猎人卡为本局外的角色设定预览
 
 ## 运行
 
@@ -38,9 +39,11 @@ npm run agents:provision
 
 智能体接入、Key 配置、8 个 Xrobot 智能体创建方式见 [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md)。
 
-## 截图
+## 角色卡
 
-![启动画面](docs/screenshots/00-startup.png)
+![角色图鉴](docs/screenshots/06-role-cards.png)
+
+## 截图
 
 | 首页 | 牌桌 |
 | --- | --- |
@@ -61,9 +64,12 @@ src/
 ├─ game/       规则引擎、AI、异步控制器
 ├─ stores/     Pinia 单一状态源
 ├─ three/      程序化场景、相机、投影
+├─ assets/roles/ 角色卡插画（程序化 SVG）
 ├─ components/ 3D 画布、牌桌 HUD、UI 基础件
 └─ views/      首页 / 大厅 / 身份 / 牌桌 / 终局
 ```
+
+> 角色卡插画为原创程序化 SVG，不依赖外部图片服务。
 
 ## 说明
 

@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 480" role="img">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c1a2a"/><stop offset=".5" stop-color="#172c3d"/><stop offset="1" stop-color="#08120f"/>
+    </linearGradient>
+    <radialGradient id="moon" cx=".4" cy=".35" r=".7">
+      <stop offset="0" stop-color="#f8f0d6"/><stop offset=".7" stop-color="#cfc9bb"/><stop offset="1" stop-color="#88959a"/>
+    </radialGradient>
+    <linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38536b"/><stop offset=".55" stop-color="#24394e"/><stop offset="1" stop-color="#122132"/>
+    </linearGradient>
+    <linearGradient id="armor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a8f9e"/><stop offset=".55" stop-color="#4e6373"/><stop offset="1" stop-color="#2d3d49"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9cbb3"/><stop offset=".7" stop-color="#c9a083"/><stop offset="1" stop-color="#a1765f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2d99f"/><stop offset=".5" stop-color="#c6a064"/><stop offset="1" stop-color="#80613a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffd18a" stop-opacity=".8"/><stop offset=".4" stop-color="#ffaf54" stop-opacity=".25"/><stop offset="1" stop-color="#ffaf54" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency=".84" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".065"/></feComponentTransfer>
+    </filter>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#050c09" stop-opacity="0"/><stop offset="1" stop-color="#050c09" stop-opacity=".74"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="360" height="480" fill="url(#sky)"/>
+  <circle cx="282" cy="103" r="53" fill="url(#moon)" opacity=".9"/>
+  <circle cx="266" cy="89" r="9" fill="#9fa9a6" opacity=".16"/><circle cx="301" cy="119" r="13" fill="#9fa9a6" opacity=".13"/>
+  <circle cx="282" cy="103" r="73" fill="none" stroke="#b8d1dc" stroke-opacity=".16"/>
+  <g fill="#dfeefa" opacity=".7">
+    <circle cx="47" cy="58" r="1.6"/><circle cx="93" cy="35" r="1.1"/><circle cx="151" cy="64" r="1.3"/>
+    <circle cx="211" cy="31" r="1"/><circle cx="325" cy="52" r="1.4"/><circle cx="334" cy="177" r="1.1"/>
+    <circle cx="36" cy="145" r="1"/><circle cx="122" cy="116" r=".8"/><circle cx="255" cy="194" r="1.1"/>
+  </g>
+  <path d="M0 296c27-16 46-38 72-39 28-1 43 26 68 34 28 9 50-11 75-11 27 0 43 20 67 23 29 3 54-12 78 1v176H0Z" fill="#0f1d1b"/>
+  <path d="M0 334c34-18 65-8 93-21 30-14 49-26 82-20 31 6 55 25 84 29 35 5 68-10 101 9v149H0Z" fill="#091410"/>
+  <g fill="#0c1816">
+    <path d="M8 311 0 391h34l-7-58 22 32-5-44 24 25-4-35 26 25Z"/>
+    <path d="M76 331l-8 46h25l-5-46 18 24-5-35 21 23-3-28 22 20Z" opacity=".8"/>
+    <path d="M296 323l-12 53h31l-8-53 20 28-5-39 22 24-4-32 25 24Z"/>
+  </g>
+  <path d="M0 407c40-17 77-8 109-15 36-8 54-20 82-19 29 1 49 16 76 21 31 6 60-9 93 5v81H0Z" fill="#0a120f"/>
+
+  <!-- mist gate -->
+  <g stroke="#14231f" stroke-width="8" stroke-linecap="round" opacity=".95">
+    <path d="M32 417V288M72 417V278M300 417V285M336 417V300"/>
+    <path d="M11 294h45M52 281h44M281 291h43M322 304h33"/>
+    <path d="M26 324h58M290 320h62"/>
+  </g>
+  <g fill="none" stroke="#9cb4b1" stroke-opacity=".12" stroke-width="12">
+    <path d="M0 372c48-22 91-13 134-27M234 355c41-8 83 2 126-13"/>
+    <path d="M-10 408c53-20 98-12 142-22M226 393c48-11 95-3 144-16"/>
+  </g>
+  <g fill="#bed2d4" opacity=".08">
+    <ellipse cx="180" cy="371" rx="160" ry="66"/>
+    <ellipse cx="93" cy="405" rx="104" ry="32"/><ellipse cx="291" cy="391" rx="111" ry="35"/>
+  </g>
+
+  <!-- shield behind left side -->
+  <g transform="translate(94 315) rotate(-8)" stroke="#1a232b" stroke-width="4.5" stroke-linejoin="round">
+    <path d="M0-67c28 12 49 14 68 12 0 52-18 94-68 122-50-28-68-70-68-122 20 2 41 0 68-12Z" fill="url(#armor)"/>
+    <path d="M0-52c22 9 40 11 55 10-1 41-15 74-55 97-40-23-54-56-55-97 15 1 33-1 55-10Z" fill="#263946" stroke="url(#gold)" stroke-width="2.5"/>
+    <path d="M0-34 18 3H-18ZM0 3v38M-17 41H17" fill="none" stroke="url(#gold)" stroke-width="4"/>
+    <path d="M-35-46c4 20 4 43-2 65M35-46c-4 20-4 43 2 65" fill="none" stroke="#9fb3bc" stroke-opacity=".35" stroke-width="2"/>
+  </g>
+  <ellipse cx="113" cy="373" rx="70" ry="68" fill="url(#glow)" opacity=".22" filter="url(#blur)"/>
+
+  <!-- spear behind right -->
+  <g stroke="#1a1511" stroke-width="4">
+    <path d="M269 103v341" stroke="#5b4630" stroke-width="7"/>
+    <path d="M269 77c10 15 13 28 0 47-13-19-10-32 0-47Z" fill="#93a8b0" stroke="#27323a" stroke-width="3"/>
+    <path d="M258 108h22M263 118c4 5 8 5 12 0" fill="none" stroke="url(#gold)" stroke-width="3"/>
+    <path d="M260 446h18" stroke="#1a232b" stroke-width="5"/>
+  </g>
+
+  <!-- guard body -->
+  <g stroke="#16141a" stroke-width="4.4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- cloak silhouette -->
+    <path d="M127 264c-27 17-42 50-44 94l-3 98h200l-3-98c-2-44-17-77-44-94Z" fill="url(#cloak)"/>
+    <path d="M121 422c44 15 74 17 118 4" fill="none" stroke="#7e91a0" stroke-opacity=".3" stroke-width="2.5"/>
+    <path d="M115 368c-9 18-13 43-13 69M245 368c9 18 13 43 13 69" fill="none" stroke="#c3a56d" stroke-width="2" opacity=".45"/>
+    <!-- legs/boots -->
+    <path d="M149 352c-4 25-8 43-16 59-5 11 1 20 14 20 14 0 19-10 22-24l9-50Z" fill="#344450"/>
+    <path d="M211 352c4 25 8 43 16 59 5 11-1 20-14 20-14 0-19-10-22-24l-9-50Z" fill="#344450"/>
+    <path d="M127 424c-10 4-15 11-13 18 2 7 12 9 24 7l30-3-3-19Z" fill="#1d2428"/>
+    <path d="M233 424c10 4 15 11 13 18-2 7-12 9-24 7l-30-3 3-19Z" fill="#1d2428"/>
+    <path d="M123 438h45M192 438h45" stroke="url(#gold)" stroke-width="2.6" opacity=".7"/>
+
+    <!-- armor torso -->
+    <path d="M141 246c-15 18-22 47-20 80l3 37h112l3-37c2-33-5-62-20-80Z" fill="url(#armor)"/>
+    <path d="M145 256c9 12 25 18 35 18s26-6 35-18l-7-15h-56Z" fill="#9aadb7"/>
+    <path d="M143 277c-9 20-11 43-9 63M217 277c9 20 11 43 9 63" fill="none" stroke="#c9d5da" stroke-width="2" opacity=".35"/>
+    <path d="M153 297c17 10 37 12 54 5M158 315c12 5 28 6 44 2" fill="none" stroke="#25343e" stroke-width="2.4" opacity=".7"/>
+    <path d="M180 262v72" stroke="#2b3a44" stroke-width="3"/>
+    <path d="M142 331c24 10 52 10 76 0" fill="none" stroke="#c3a56d" stroke-width="3"/>
+    <circle cx="180" cy="331" r="10" fill="url(#gold)" stroke="#1a232b" stroke-width="3"/>
+    <path d="M180 325v12M174 331h12" stroke="#4b3821" stroke-width="2"/>
+    <path d="M132 261c-12 14-18 33-19 52l11 8 18-22 8-26Z" fill="url(#cloak)"/>
+    <path d="M228 261c12 14 18 33 19 52l-11 8-18-22-8-26Z" fill="url(#cloak)"/>
+    <path d="M124 310c-7 2-10 9-5 14 4 5 11 3 16-1M236 310c7 2 10 9 5 14-4 5-11 3-16-1" fill="#8b9da6"/>
+  </g>
+
+  <!-- lantern -->
+  <g transform="translate(248 344)">
+    <path d="M0-25v12" stroke="#1a1511" stroke-width="3.5"/>
+    <path d="M-13-13h26v35c0 8-6 12-13 12s-13-4-13-12Z" fill="#3e2d1e" stroke="#1a1511" stroke-width="3.5"/>
+    <rect x="-9" y="-7" width="18" height="26" rx="3" fill="#ffce83" opacity=".9"/>
+    <path d="M-13-7h26M-13 18h26M-9-15v43M9-15v43" stroke="#1a1511" stroke-width="2.6"/>
+    <path d="M-11 23h22" stroke="#1a1511" stroke-width="4"/>
+  </g>
+  <ellipse cx="248" cy="371" rx="54" ry="56" fill="url(#glow)" opacity=".55" filter="url(#blur)"/>
+
+  <!-- head / hood -->
+  <g transform="translate(180 190)" stroke="#16141a" stroke-width="4.4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M-55 4c-4-39 18-68 55-68s59 29 55 68c-3 34-25 55-55 55s-52-21-55-55Z" fill="url(#skin)"/>
+    <!-- hood outer -->
+    <path d="M-72 28c-21-20-27-55-13-81 14-27 42-43 85-43s71 16 85 43c14 26 8 61-13 81l-17-14c15-16 20-36 13-53-9-21-32-34-68-34s-59 13-68 34c-7 17-2 37 13 53Z" fill="#2c485d"/>
+    <path d="M-58 28c-3-25 9-46 31-57 13-7 26-9 45-9M58 28c3-13-2-27-11-38" fill="none" stroke="#c5aa74" stroke-width="2.4" opacity=".5"/>
+    <!-- hair / face shadow -->
+    <path d="M-52 2c-3-23 7-43 26-55 5 13 11 21 20 25 9-4 15-12 20-25 19 12 29 32 26 55-7-9-11-19-11-30-12 5-23 3-35-7-12 10-23 12-35 7 0 11-4 21-11 30Z" fill="#1e252d"/>
+    <!-- eyes calm -->
+    <ellipse cx="-24" cy="8" rx="11" ry="9" fill="#f2e9d9"/>
+    <ellipse cx="24" cy="8" rx="11" ry="9" fill="#f2e9d9"/>
+    <circle cx="-21" cy="8" r="4.8" fill="#2c3944"/><circle cx="27" cy="8" r="4.8" fill="#2c3944"/>
+    <circle cx="-23" cy="6" r="1.4" fill="#fff" opacity=".85"/><circle cx="25" cy="6" r="1.4" fill="#fff" opacity=".85"/>
+    <path d="M-39-8c8-4 16-3 22 1M17-7c7-4 15-5 22-1" fill="none" stroke="#3a302c" stroke-width="2.2"/>
+    <path d="M-4 21c3 2 5 2 8 0" fill="none" stroke="#a57661" stroke-width="2" stroke-linecap="round"/>
+    <path d="M-9 32c6 3 12 3 18 0" fill="none" stroke="#7d4d42" stroke-width="2.3" stroke-linecap="round"/>
+    <path d="M-29 27c5 2 8 5 9 9M29 27c-5 2-8 5-9 9" fill="none" stroke="#b98470" stroke-width="2" opacity=".5"/>
+    <path d="M-42 11c-1 10 2 18 8 23M42 11c1 10-2 18-8 23" fill="none" stroke="#9f725d" stroke-width="2" opacity=".45"/>
+    <!-- hood opening trim -->
+    <path d="M-61 21c-13 12-19 29-20 47M61 21c13 12 19 29 20 47" fill="none" stroke="url(#gold)" stroke-width="3.4"/>
+    <!-- small shoulder moon clasp -->
+    <circle cx="0" cy="52" r="9" fill="#314b5d" stroke="#c6a66c" stroke-width="2.6"/>
+    <path d="M2 46a6 6 0 1 0 3 11 7 7 0 0 1-3-11Z" fill="#e0c58d" stroke="none"/>
+  </g>
+
+  <g fill="none" stroke="#acc7ce" stroke-opacity=".18" stroke-width="2">
+    <path d="M44 250c21-9 40-8 57 2M264 244c18-9 35-8 50 1"/>
+    <path d="M18 435c31-10 60-8 89 0M246 431c29-7 57-5 86 3"/>
+  </g>
+  <g fill="#e7c78d" opacity=".35">
+    <circle cx="66" cy="269" r="1.2"/><circle cx="303" cy="285" r="1.1"/><circle cx="323" cy="412" r="1"/>
+  </g>
+  <rect width="360" height="480" fill="url(#fade)" opacity=".35"/>
+  <rect width="360" height="480" filter="url(#grain)" opacity=".5"/>
+</svg>
