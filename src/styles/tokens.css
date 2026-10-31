@@ -1,0 +1,62 @@
+:root {
+  /* ---- palette ------------------------------------------------------- */
+  --bg: #070d0a;
+  --bg-deep: #050806;
+  --bg-forest: #0b1510;
+  --bg-moss: #101b15;
+  --ink: #f0e9d9;
+  --ink-soft: rgba(236, 230, 214, 0.66);
+  --ink-mute: rgba(236, 230, 214, 0.42);
+  --ink-faint: rgba(236, 230, 214, 0.24);
+  --gold: #d4b27a;
+  --gold-bright: #e7c991;
+  --gold-deep: #a9844e;
+  --line: rgba(224, 210, 180, 0.2);
+  --line-soft: rgba(224, 210, 180, 0.1);
+  --panel: rgba(11, 18, 14, 0.56);
+  --panel-solid: #0c1410;
+  --panel-raised: rgba(20, 29, 23, 0.72);
+  --blood: #a9554d;
+  --blood-soft: rgba(169, 85, 77, 0.18);
+  --moss: #6c8871;
+  --moss-bright: #93ac93;
+  --moon: #f6e6bb;
+  --danger: #c46a5f;
+  --ok: #8fb08e;
+
+  /* ---- type ---------------------------------------------------------- */
+  --serif: "Iowan Old Style", "Baskerville", "Palatino Linotype", "Songti SC", "STSong",
+    "Noto Serif CJK SC", "Noto Serif SC", serif;
+  --sans: "Avenir Next", "Avenir", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --mono: "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+
+  /* ---- motion -------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-curtain: cubic-bezier(0.7, 0, 0.3, 1);
+  --dur-fast: 0.28s;
+  --dur-mid: 0.6s;
+  --dur-slow: 1.1s;
+
+  /* ---- layout -------------------------------------------------------- */
+  --gutter: clamp(20px, 3.6vw, 56px);
+  --z-scene: 0;
+  --z-shade: 2;
+  --z-ui: 5;
+  --z-hud: 12;
+  --z-sheet: 30;
+  --z-banner: 40;
+  --z-loader: 60;
+  --z-toast: 70;
+
+  --shadow-panel: 0 30px 80px rgba(0, 0, 0, 0.45), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.001s;
+    --dur-mid: 0.001s;
+    --dur-slow: 0.001s;
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "mulin-night",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5188",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5189",
+    "typecheck": "vue-tsc --noEmit",
+    "serve": "node server/index.mjs",
+    "agents:provision": "node server/provision-agents.mjs",
+    "agents:dry-run": "node server/provision-agents.mjs --dry-run"
+  },
+  "dependencies": {
+    "pinia": "^3.0.3",
+    "three": "^0.180.0",
+    "vue": "^3.5.22",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.11",
+    "vue-tsc": "^3.1.1"
+  }
+}
