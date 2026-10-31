@@ -61,10 +61,10 @@ src/
 ├─ game/       规则引擎、AI、异步控制器
 ├─ stores/     Pinia 单一状态源
 ├─ three/      程序化场景、相机、投影
-├─ components/ 启动幕布、3D 画布、牌桌 HUD、UI 基础件
+├─ components/ 3D 画布、牌桌 HUD、UI 基础件
 └─ views/      首页 / 大厅 / 身份 / 牌桌 / 终局
 ```
 
 ## 说明
 
-参考页 `forest-cabin.html` 中的 Three.js 代码不完整；当前 3D 场景按参考页的美术方向重新程序化搭建，并保留了启动 loader 的文案、版式与节奏。
+参考页 `forest-cabin.html` 中的 Three.js 代码不完整；当前 3D 场景按参考页的美术方向重新程序化搭建，首屏直接进入暮林夜话，不再有加载幕布。

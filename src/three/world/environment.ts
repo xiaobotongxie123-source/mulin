@@ -377,13 +377,15 @@ export function buildEnvironment(): EnvironmentRefs {
   // path of flat stones from the clearing to the cabin door
   const scatter = new THREE.Group();
   const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTexture(), roughness: 1 });
-  for (let i = 0; i < 24; i += 1) {
-    const t = i / 23;
-    const z = 7.6 - t * 13.4;
-    const x = Math.sin(i * 2.3) * 0.55 * (1 - t * 0.3);
-    const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.32 + (i % 3) * 0.08, 0.38, 0.07, 7), stoneMat);
+  for (let i = 0; i < 42; i += 1) {
+    const t = i / 41;
+    const z = 16.8 - t * 22.6;
+    const spread = 0.34 + t * 0.35;
+    const x = Math.sin(i * 2.3) * spread + Math.sin(i * 0.37) * 0.12;
+    const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.3 + (i % 3) * 0.075, 0.36, 0.065, 7), stoneMat);
     stone.position.set(x, 0.045, z);
     stone.rotation.y = i * 0.9;
+    stone.scale.z = 0.85 + (i % 4) * 0.06;
     stone.receiveShadow = true;
     scatter.add(stone);
   }
@@ -404,6 +406,24 @@ export function buildEnvironment(): EnvironmentRefs {
     grass.setMatrixAt(i, dummy.matrix);
   }
   scatter.add(grass);
+
+  // A few near-black pines frame the clearing like the edges of a film frame.
+  const framingMat = new THREE.MeshStandardMaterial({
+    color: '#0c1711',
+    roughness: 1,
+    flatShading: true,
+  });
+  for (const [x, z, scale] of [
+    [-14.5, 13.5, 2.8],
+    [15.5, 10.5, 2.3],
+    [-18.5, 21, 3.1],
+  ] as const) {
+    const tree = new THREE.Mesh(buildPineGeometry(), framingMat);
+    tree.position.set(x, 0, z);
+    tree.scale.setScalar(scale);
+    tree.rotation.y = x * 0.17;
+    scatter.add(tree);
+  }
 
   // scattered boulders at the edge of the clearing
   const boulderMat = new THREE.MeshStandardMaterial({ map: stoneTexture(), roughness: 1 });

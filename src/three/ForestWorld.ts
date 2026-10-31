@@ -8,6 +8,7 @@ import type { Player, Phase, Faction } from '@/game/types';
 import { buildCabin, type CabinRefs } from './world/cabin';
 import { buildTable, type SeatFigureRefs, type TableRefs } from './world/table';
 import { buildEnvironment, type EnvironmentRefs } from './world/environment';
+import { buildWalkers, type WalkerRefs } from './world/walkers';
 import { clearSeatPoints, setSeatPoints, type SeatPoint } from './projection';
 
 export type WorldMode = 'home' | 'lobby' | 'reveal' | 'table' | 'result';
@@ -27,13 +28,13 @@ interface CameraPreset {
 
 const PRESETS: Record<WorldMode, CameraPreset> = {
   home: {
-    pos: [0.8, 4.2, 30],
-    target: [-3.4, 2.9, -8],
-    fov: 38,
+    pos: [1.0, 4.3, 27.5],
+    target: [-3.2, 2.55, -8],
+    fov: 36,
     orbit: true,
-    minDistance: 18,
-    maxDistance: 38,
-    minPolar: 1.14,
+    minDistance: 17,
+    maxDistance: 36,
+    minPolar: 1.12,
     maxPolar: 1.5,
     azSwing: 0.3,
   },
@@ -135,6 +136,7 @@ export class ForestWorld {
 
   private env: EnvironmentRefs;
   private cabin: CabinRefs;
+  private walkers: WalkerRefs;
   private table: TableRefs;
   private tableGroup: THREE.Group;
   private tableKey: THREE.PointLight;
@@ -148,7 +150,7 @@ export class ForestWorld {
   private camTween: CamTween | null = null;
   private introActive = true;
   private introStartedAt = 0;
-  private introDuration = 9.5;
+  private introDuration = 4.8;
 
   private hemi: THREE.HemisphereLight;
   private ambient: THREE.AmbientLight;
@@ -246,6 +248,11 @@ export class ForestWorld {
     this.cabin = buildCabin(1.12);
     this.cabin.group.position.set(0, 0, -8);
     this.scene.add(this.cabin.group);
+
+    this.walkers = buildWalkers();
+    this.scene.add(this.walkers.group);
+    this.walkers.reset(performance.now() / 1000);
+    this.walkers.update(performance.now() / 1000);
 
     this.table = buildTable(players.map((player) => ({ seat: player.seat, character: player.character })));
     this.tableGroup = this.table.group;
@@ -357,6 +364,8 @@ export class ForestWorld {
     this.family = nextFamily;
     this.introActive = false;
     this.tableGroup.visible = nextFamily === 'table';
+    this.walkers.group.visible = nextFamily === 'cabin';
+    if (nextFamily === 'cabin' && familyChange) this.walkers.reset(performance.now() / 1000);
     this.renderer.toneMappingExposure = nextFamily === 'table' ? 1.2 : 1.08;
 
     if (nextFamily === 'table') {
@@ -509,6 +518,7 @@ export class ForestWorld {
       this.elapsed += dt;
       this.updateCamera(dt);
       this.updateAtmosphere(dt);
+      this.walkers.update(performance.now() / 1000);
       this.updateSeats(dt);
       this.controls.update();
       if (!this.firstFrameDone) {
@@ -525,9 +535,9 @@ export class ForestWorld {
       const p = THREE.MathUtils.clamp((performance.now() - this.introStartedAt) / (this.introDuration * 1000), 0, 1);
       const e = easeInOutCubic(p);
       const home = this.presetFor('home');
-      this.camera.position.lerpVectors(new THREE.Vector3(0, 14, 52), new THREE.Vector3(...home.pos), e);
-      this.controls.target.lerpVectors(new THREE.Vector3(0, 7.0, -10), new THREE.Vector3(...home.target), e);
-      this.camera.fov = THREE.MathUtils.lerp(43, home.fov, e);
+      this.camera.position.lerpVectors(new THREE.Vector3(1.2, 6.8, 36), new THREE.Vector3(...home.pos), e);
+      this.controls.target.lerpVectors(new THREE.Vector3(-2.4, 3.4, -8), new THREE.Vector3(...home.target), e);
+      this.camera.fov = THREE.MathUtils.lerp(39, home.fov, e);
       this.camera.updateProjectionMatrix();
       if (p >= 1) {
         this.introActive = false;
