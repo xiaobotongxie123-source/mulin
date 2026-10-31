@@ -218,7 +218,7 @@ ${JSON.stringify(context, null, 2)}
   ];
 }
 
-async function callLlm(config, messages) {
+async function callLlmOnce(config, messages) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeout);
   try {
@@ -233,8 +233,12 @@ async function callLlm(config, messages) {
         messages,
         temperature: 0.95,
         top_p: 0.95,
-        max_tokens: 180,
+        max_tokens: 600,
         stream: false,
+        // Qiniu's DeepSeek models can spend the whole budget on hidden
+        // reasoning and return an empty content field. The table wants a
+        // short spoken line, so ask for the answer directly.
+        ...(config.baseUrl.includes('qnaigc.com') ? { thinking: { type: 'disabled' } } : {}),
       }),
       signal: controller.signal,
     });
@@ -247,7 +251,10 @@ async function callLlm(config, messages) {
     }
     if (!response.ok) {
       const reason = data?.error?.message || data?.message || raw.slice(0, 180) || 'LLM request failed';
-      throw Object.assign(new Error(String(reason)), { status: 502 });
+      throw Object.assign(new Error(String(reason)), {
+        status: response.status === 429 ? 429 : 502,
+        retryable: response.status === 429 || response.status >= 500,
+      });
     }
     const content =
       data?.choices?.[0]?.message?.content ??
@@ -257,12 +264,28 @@ async function callLlm(config, messages) {
     return normalizeSpeech(content);
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw Object.assign(new Error('agent timeout'), { status: 504 });
+      throw Object.assign(new Error('agent timeout'), { status: 504, retryable: true });
     }
     throw error;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function callLlm(config, messages) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const text = await callLlmOnce(config, messages);
+      if (text) return text;
+      lastError = Object.assign(new Error('empty_agent_response'), { status: 502, retryable: true });
+    } catch (error) {
+      lastError = error;
+      if (error?.retryable === false) throw error;
+    }
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 320));
+  }
+  throw lastError ?? Object.assign(new Error('agent failed'), { status: 502 });
 }
 
 function mockSpeech(profile, context) {
