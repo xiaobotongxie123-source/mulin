@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
           type="button"
           :class="{ 'is-on': voiceNarration.enabled }"
           :aria-label="voiceNarration.enabled ? '关闭角色语音' : '开启角色语音'"
-          :title="voiceNarration.provider === 'browser' ? '角色语音 · 浏览器回退' : '角色语音 · 灵矽AI'"
+          :title="voiceNarration.provider === 'browser' ? `角色语音 · 浏览器回退${voiceNarration.lastError ? `（${voiceNarration.lastError}）` : ''}` : '角色语音 · 灵矽AI'"
           @click="toggleVoice"
         >
           <svg v-if="voiceNarration.enabled" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path d="M15.5 3.5h5M18 1v5" /></svg>
