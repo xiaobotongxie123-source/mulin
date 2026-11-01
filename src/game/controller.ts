@@ -26,6 +26,7 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
+import { speechPauseMs, voiceNarration } from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -103,6 +104,19 @@ export class GameController {
     }
     this.pending.clear();
     this.store.cancelPrompt();
+  }
+
+  /**
+   * Give the narrator time to finish the line that was just added to the log.
+   * The real wall-clock duration is kept even when the player picks 2x/3x, so
+   * the voices do not overlap into an unintelligible crowd.
+   */
+  private async holdAfterSpeech(text: string): Promise<void> {
+    if (!voiceNarration.enabled || !/[\p{L}\p{N}]/u.test(text)) {
+      await this.wait(420);
+      return;
+    }
+    await this.wait(speechPauseMs(text) * this.store.speed);
   }
 
   private wait(ms: number): Promise<void> {
@@ -437,20 +451,21 @@ export class GameController {
         if (action.auto) {
           const speech = botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
           this.applySpeech(seat, speech.text, speech.claim);
-          await this.wait(500);
+          await this.holdAfterSpeech(speech.text);
         } else {
           const text = (action.text ?? '').trim() || '过。';
           const claim = parseHumanClaim(text, seat, store.round);
           this.applySpeech(seat, text, claim ?? undefined);
-          await this.wait(400);
+          await this.holdAfterSpeech(text);
         }
       } else {
         await this.delay(900, 1500);
         const speech = agentLines.has(seat)
           ? await agentLines.get(seat)
           : botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
-        this.applySpeech(seat, speech?.text ?? '……', speech?.claim);
-        await this.wait(420);
+        const line = speech?.text ?? '……';
+        this.applySpeech(seat, line, speech?.claim);
+        await this.holdAfterSpeech(line);
       }
     }
     store.speakerSeat = null;
@@ -549,10 +564,12 @@ export class GameController {
         });
         const text = (action.text ?? '').trim();
         if (text) store.addLog('speech', text, seat);
-        await this.wait(300);
+        await this.holdAfterSpeech(text || '……');
       } else {
         await this.wait(900);
-        store.addLog('speech', botLastWords(), seat);
+        const line = botLastWords();
+        store.addLog('speech', line, seat);
+        await this.holdAfterSpeech(line);
       }
     }
   }

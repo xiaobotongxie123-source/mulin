@@ -54,7 +54,7 @@ npm run preview     # 预览 dist
 | 路由 | Vue Router 4 |
 | 3D | Three.js 0.180（`three/addons`） |
 | 样式 | 原生 CSS + 设计 token |
-| 音频 | WebAudio 程序化环境声（默认关闭） |
+| 音频 | WebAudio 程序化环境声（默认关闭）；灵矽AI TTS 角色语音（默认开启） |
 | 智能体 | Node 代理 + OpenAI 兼容接口（可选，Key 仅服务端） |
 
 ---
@@ -566,7 +566,7 @@ mulin-night/
 
 ## 12.5 智能体接入
 
-8 位 AI 旅人各有一份固定人设提示词，位于 `server/agents.mjs`。当 `.env` 配置了 `AGENT_LLM_API_KEY` 时：
+8 位 AI 旅人各有一份固定人设提示词，位于 `server/agents.mjs`；1 号沈砚额外有一个仅用于语音的 Xrobot 智能体。当 `.env` 配置了 `AGENT_LLM_API_KEY` 时：
 
 - 每轮讨论开始，8 个发言请求并行预取；
 - 每个请求只携带该角色的**私有信息**（狼队友、查验、药瓶、上一夜守护）；
@@ -575,7 +575,7 @@ mulin-night/
 - 任何超时或失败都会回退到本地策略，不阻塞牌局；
 - 大厅和牌桌显示「智能体在线 / 本地策略 / 降级」状态。
 
-`npm run agents:provision` 可以用同一套人设，通过灵矽 Xrobot 的智能体 API 创建/更新 8 个角色智能体。完整配置、接口与安全边界见 [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md)。
+`npm run agents:provision` 可以用同一套人设，通过灵矽 Xrobot 的智能体 API 创建/更新 9 个角色智能体，并为每个角色写入独立 `ttsVoiceId`。TTS 由服务端 `/api/tts` 经 Xrobot 设备 WebSocket 合成；前端按角色播放，失败时回退浏览器中文语音。完整配置、接口与安全边界见 [docs/AGENT_INTEGRATION.md](docs/AGENT_INTEGRATION.md)。
 
 ## 13. 后续路线
 
