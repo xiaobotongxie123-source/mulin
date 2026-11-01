@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   const agentApi = createApiHandler();
 
   return {
+    base: process.env.APP_BASE_PATH || '/',
     plugins: [
       vue(),
       {

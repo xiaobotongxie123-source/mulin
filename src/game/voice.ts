@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import { apiUrl } from '@/game/apiBase';
 
 export type VoiceProvider = 'unknown' | 'xrobot' | 'browser';
 
@@ -149,7 +150,7 @@ export async function prepareNarration(seat: number, text: string): Promise<Prep
     pendingControllers.add(controller);
     const timer = window.setTimeout(() => controller.abort(), 7_000);
     try {
-      const response = await fetch('/api/tts', {
+      const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'audio/wav' },
         body: JSON.stringify({ seat, text: normalized }),

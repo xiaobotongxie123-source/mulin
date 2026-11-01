@@ -1,5 +1,6 @@
 import { onBeforeUnmount, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
+import { apiUrl } from '@/game/apiBase';
 import {
   abortPreparations,
   clearPreparedNarrations,
@@ -226,7 +227,7 @@ export function useVoiceNarrator(store: GameStore) {
     // is busy, switch to the local voice instead of freezing the table.
     const timer = window.setTimeout(() => controller.abort(), 7_000);
     try {
-      const response = await fetch('/api/tts', {
+      const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'audio/wav' },
         body: JSON.stringify({ seat: item.seat, text: item.text }),

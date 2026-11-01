@@ -1,5 +1,6 @@
 import { reactive } from 'vue';
 import type { Claim, Role, SeerCheck } from './types';
+import { apiUrl } from './apiBase';
 
 export type AgentRuntimeState = 'unknown' | 'checking' | 'online' | 'offline' | 'degraded';
 
@@ -71,7 +72,7 @@ export async function checkAgentRuntime(force = false): Promise<boolean> {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 1800);
     try {
-      const response = await fetch('/api/health', {
+      const response = await fetch(apiUrl('/api/health'), {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
       });
@@ -112,7 +113,7 @@ export async function requestAgentSpeech(
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 15_000);
   try {
-    const response = await fetch(`/api/agents/${seat}/speak`, {
+    const response = await fetch(apiUrl(`/api/agents/${seat}/speak`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ context }),
