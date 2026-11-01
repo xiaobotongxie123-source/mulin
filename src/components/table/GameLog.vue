@@ -3,11 +3,14 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
 import type { LogEntry } from '@/game/types';
 
+const props = defineProps<{ hiddenId?: number }>();
 const store = useGameStore();
 const list = ref<HTMLElement | null>(null);
 const collapsed = ref(false);
 
-const entries = computed(() => store.logs.filter((entry) => entry.revealed !== false).slice(-120));
+const entries = computed(() => store.logs
+  .filter((entry) => entry.revealed !== false && entry.id !== props.hiddenId)
+  .slice(-120));
 
 function playerName(seat?: number): string {
   if (!seat) return '';

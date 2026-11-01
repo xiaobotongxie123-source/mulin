@@ -85,6 +85,19 @@ function primeAudioContext(): void {
   }).catch(() => undefined);
 }
 
+let unlockInstalled = false;
+
+/** Install once from main.ts so the first tap anywhere unlocks later TTS. */
+export function installAudioUnlock(): void {
+  if (unlockInstalled || typeof document === 'undefined') return;
+  unlockInstalled = true;
+  const prime = () => primeAudioContext();
+  document.addEventListener('pointerdown', prime, { passive: true });
+  document.addEventListener('touchstart', prime, { passive: true });
+  document.addEventListener('click', prime);
+  document.addEventListener('keydown', prime);
+}
+
 async function playWavWithContext(
   blob: Blob,
   item: NarrationItem,
@@ -480,23 +493,15 @@ export function useVoiceNarrator(store: GameStore) {
     if (document.hidden) stopPlayback();
   };
   const stopOnPageHide = () => stopPlayback();
-  const primeOnGesture = () => primeAudioContext();
   document.addEventListener('visibilitychange', stopWhenHidden);
   window.addEventListener('pagehide', stopOnPageHide);
-  document.addEventListener('pointerdown', primeOnGesture, { passive: true });
-  document.addEventListener('touchstart', primeOnGesture, { passive: true });
-  document.addEventListener('click', primeOnGesture);
-  document.addEventListener('keydown', primeOnGesture);
+  installAudioUnlock();
 
   onBeforeUnmount(() => {
     disposed = true;
     unwatch();
     document.removeEventListener('visibilitychange', stopWhenHidden);
     window.removeEventListener('pagehide', stopOnPageHide);
-    document.removeEventListener('pointerdown', primeOnGesture);
-    document.removeEventListener('touchstart', primeOnGesture);
-    document.removeEventListener('click', primeOnGesture);
-    document.removeEventListener('keydown', primeOnGesture);
     stopPlayback();
   });
 
