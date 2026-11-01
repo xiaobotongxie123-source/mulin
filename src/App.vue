@@ -2,15 +2,27 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import WorldCanvas from '@/components/scene/WorldCanvas.vue';
+import { useGameStore } from '@/stores/game';
 import type { WorldMode } from '@/three/ForestWorld';
 
 const route = useRoute();
+const game = useGameStore();
 const displayMode = ref<WorldMode>('home');
 const veil = ref(false);
 let veilTimer = 0;
 let revealTimer = 0;
 
 const routeMode = computed<WorldMode>(() => (route.meta.world as WorldMode) ?? 'home');
+const daylight = computed(() => {
+  if (!isTableFamily(routeMode.value)) return false;
+  const phase = game.phase;
+  return (
+    phase === 'dawn' ||
+    phase === 'discussion' ||
+    phase === 'vote' ||
+    (phase === 'result' && game.winner?.faction === 'good')
+  );
+});
 
 function isTableFamily(mode: WorldMode): boolean {
   return mode === 'reveal' || mode === 'table' || mode === 'result';
@@ -42,7 +54,7 @@ const routeKey = computed(() => String(route.name ?? route.path));
 </script>
 
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'is-daylight': daylight }">
     <WorldCanvas :mode="displayMode" />
     <div class="frame-shade" aria-hidden="true"></div>
 
@@ -77,10 +89,16 @@ const routeKey = computed(() => String(route.name ?? route.path));
   inset: 0;
   z-index: var(--z-shade);
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.9s var(--ease-out);
   background:
     radial-gradient(ellipse 62% 74% at 3% 96%, rgba(3, 7, 5, 0.43) 0%, rgba(3, 7, 5, 0.2) 36%, rgba(3, 7, 5, 0) 72%),
     linear-gradient(180deg, rgba(3, 7, 5, 0.35) 0%, rgba(3, 7, 5, 0) 18%, rgba(3, 7, 5, 0) 68%, rgba(3, 7, 5, 0.46) 100%),
     linear-gradient(90deg, rgba(3, 7, 5, 0.28) 0%, rgba(3, 7, 5, 0) 25%, rgba(3, 7, 5, 0) 76%, rgba(3, 7, 5, 0.18) 100%);
+}
+
+.app.is-daylight .frame-shade {
+  opacity: 0.24;
 }
 
 .view-layer {

@@ -279,8 +279,8 @@ export function buildEnvironment(): EnvironmentRefs {
     uDay: { value: 0 },
     uNightTop: { value: new THREE.Color('#040a12') },
     uNightHorizon: { value: new THREE.Color('#21332c') },
-    uDayTop: { value: new THREE.Color('#718da2') },
-    uDayHorizon: { value: new THREE.Color('#d7b88b') },
+    uDayTop: { value: new THREE.Color('#81aec4') },
+    uDayHorizon: { value: new THREE.Color('#efd9ad') },
   };
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(130, 36, 24),

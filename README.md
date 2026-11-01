@@ -6,6 +6,7 @@
 - 玩家固定 1 号位，8 位 AI 旅人
 - 无联机；无 Key 时不需要后端，程序化 3D 暮林山舍，完整夜间、发言、投票、遗言、终局
 - 首页含满月、四位持灯旅人、电影感木屋细节与暖光石径
+- 牌桌夜间统一闭眼、天亮睁眼；出局者落座、存活者站立；白昼切换为清透低雾日光
 - 可选 Node 智能体代理：8 位 AI 旅人各自接入 OpenAI 兼容模型 / 灵矽角色人设
 - 规则弹窗内置 6 张角色卡插画（狼人、预言家、女巫、猎人、村民、守卫），猎人卡为本局外的角色设定预览
 
@@ -46,13 +47,17 @@ npm run agents:provision
 
 ## 截图
 
-| 首页 | 牌桌 |
+| 首页 | 牌桌 · 夜 |
 | --- | --- |
 | ![首页](docs/screenshots/01-home.png) | ![狼人行动](docs/screenshots/03-table-wolf.png) |
 
-| 守卫行动 | 终局 |
+| 牌桌 · 天亮 | 守卫行动 |
 | --- | --- |
-| ![守卫](docs/screenshots/03-table-guard.png) | ![终局](docs/screenshots/05-result-good.png) |
+| ![白天牌桌](docs/screenshots/03-table-day.png) | ![守卫](docs/screenshots/03-table-guard.png) |
+
+| 终局 |
+| --- |
+| ![终局](docs/screenshots/05-result-good.png) |
 
 | 移动端牌桌 | 移动端终局 |
 | --- | --- |
