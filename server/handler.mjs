@@ -348,9 +348,17 @@ export function createApiHandler() {
     }
 
     if (req.method === 'POST' && pathname === '/api/tts') {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      const abortIfDisconnected = () => {
+        if (!res.writableEnded) abort();
+      };
+      req.once('aborted', abort);
+      res.once('close', abortIfDisconnected);
       try {
         const body = await readBody(req);
-        const result = await synthesizeSpeech(body?.seat, body?.text);
+        const result = await synthesizeSpeech(body?.seat, body?.text, { signal: controller.signal });
+        if (res.destroyed || res.writableEnded) return;
         res.statusCode = 200;
         res.setHeader('Content-Type', 'audio/wav');
         res.setHeader('Content-Length', result.audio.length);
@@ -358,12 +366,16 @@ export function createApiHandler() {
         res.setHeader('X-Voice-Provider', result.provider);
         res.end(result.audio);
       } catch (error) {
+        if (res.destroyed || res.writableEnded) return;
         const status = Number(error?.status) || 502;
         sendJson(res, status >= 400 && status < 600 ? status : 502, {
           ok: false,
           error: 'tts_failed',
           message: error instanceof Error ? error.message : 'TTS failed',
         });
+      } finally {
+        req.off('aborted', abort);
+        res.off('close', abortIfDisconnected);
       }
       return;
     }

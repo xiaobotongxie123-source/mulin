@@ -61,7 +61,7 @@ function pcmToWav(pcm, sampleRate = SAMPLE_RATE) {
   return Buffer.concat([header, pcm]);
 }
 
-function speakOverSocket({ text, voice }) {
+function speakOverSocket({ text, voice, signal }) {
   return new Promise((resolve, reject) => {
     let ws;
     try {
@@ -89,6 +89,7 @@ function speakOverSocket({ text, voice }) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
       try {
         ws.close();
       } catch {
@@ -108,6 +109,15 @@ function speakOverSocket({ text, voice }) {
     const timer = setTimeout(() => {
       finish(Object.assign(new Error('TTS timed out'), { status: 504 }));
     }, REQUEST_TIMEOUT);
+
+    const abort = () => {
+      finish(Object.assign(new Error('TTS request aborted'), { status: 499 }));
+    };
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener('abort', abort, { once: true });
 
     ws.addEventListener('open', () => {
       ws.send(JSON.stringify({
@@ -200,7 +210,7 @@ export function ttsReady() {
   return Boolean(env('XROBO_API_KEY'));
 }
 
-export async function synthesizeSpeech(seat, inputText) {
+export async function synthesizeSpeech(seat, inputText, options = {}) {
   if (!ttsReady()) {
     throw Object.assign(new Error('TTS is not configured'), { status: 503 });
   }
@@ -220,7 +230,13 @@ export async function synthesizeSpeech(seat, inputText) {
   const cached = audioCache.get(cacheKey);
   if (cached) return cached;
 
-  const result = await withDeviceQueue(async () => speakOverSocket({ text, voice }));
+  const signal = options.signal;
+  const result = await withDeviceQueue(async () => {
+    if (signal?.aborted) {
+      throw Object.assign(new Error('TTS request aborted'), { status: 499 });
+    }
+    return speakOverSocket({ text, voice, signal });
+  });
 
   const wav = pcmToWav(result.pcm, result.sampleRate);
   const payload = { audio: wav, provider: 'xrobot', voice: voice.name };

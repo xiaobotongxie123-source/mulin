@@ -59,9 +59,12 @@ const seatName = (seat: number): string => {
 
 const currentSpeech = computed(() => {
   if (!store.speakerSeat || !store.speaking) return null;
+  const player = store.players.find((item) => item.seat === store.speakerSeat);
+  if (voiceNarration.preparingSeat === store.speakerSeat) {
+    return { text: '正在斟酌……', player, seat: store.speakerSeat };
+  }
   const entry = [...store.logs].reverse().find((log) => log.kind === 'speech' && log.seat === store.speakerSeat);
   if (!entry) return null;
-  const player = store.players.find((item) => item.seat === store.speakerSeat);
   return { text: entry.text, player, seat: store.speakerSeat };
 });
 

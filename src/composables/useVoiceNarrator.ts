@@ -1,9 +1,14 @@
 import { onBeforeUnmount, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
 import {
+  abortPreparations,
+  clearPreparedNarrations,
+  markNarrationDone,
   normalizedSpeechText,
+  resolveAllNarrations,
   setVoiceEnabled,
   speechPauseMs,
+  takePreparedNarration,
   voiceNarration,
   VOICE_PROFILES,
 } from '@/game/voice';
@@ -69,7 +74,7 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
   });
 }
 
-function playWav(blob: Blob, item: NarrationItem, token: () => number): Promise<void> {
+function playWav(blob: Blob, item: NarrationItem, token: () => number, durationMs = 0): Promise<void> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -93,7 +98,7 @@ function playWav(blob: Blob, item: NarrationItem, token: () => number): Promise<
     audio.volume = 1;
     audio.onended = () => finish();
     audio.onerror = () => finish(new Error('audio playback failed'));
-    const timer = window.setTimeout(() => finish(), speechPauseMs(item.text) + 6_000);
+    const timer = window.setTimeout(() => finish(), (durationMs || speechPauseMs(item.text)) + 6_000);
     void audio.play().catch((error) => finish(error instanceof Error ? error : new Error('audio play blocked')));
     activeAudio = audio;
     if (token() !== startToken) {
@@ -112,6 +117,7 @@ export function useVoiceNarrator(store: GameStore) {
   let queue: NarrationItem[] = [];
   let busy = false;
   let disposed = false;
+  let activeLogId: number | null = null;
 
   const token = () => stopToken;
 
@@ -123,10 +129,24 @@ export function useVoiceNarrator(store: GameStore) {
     activeAudio?.pause();
     activeAudio = null;
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (activeLogId !== null) markNarrationDone(activeLogId);
+    activeLogId = null;
     voiceNarration.speakingSeat = null;
+    voiceNarration.preparingSeat = null;
+    abortPreparations();
+    clearPreparedNarrations();
+    resolveAllNarrations();
   }
 
   async function playRemote(item: NarrationItem): Promise<void> {
+    const prepared = takePreparedNarration(item.seat, item.text);
+    if (prepared) {
+      voiceNarration.provider = 'xrobot';
+      voiceNarration.lastError = '';
+      await playWav(prepared.blob, item, token, prepared.durationMs);
+      return;
+    }
+
     const controller = new AbortController();
     activeController = controller;
     const timer = window.setTimeout(() => controller.abort(), 22_000);
@@ -172,11 +192,14 @@ export function useVoiceNarrator(store: GameStore) {
     if (!item) return;
     busy = true;
     voiceNarration.speakingSeat = item.seat;
+    activeLogId = item.logId;
     try {
       await playItem(item);
     } catch (error) {
       voiceNarration.lastError = error instanceof Error ? error.message : 'speech failed';
     } finally {
+      markNarrationDone(item.logId);
+      if (activeLogId === item.logId) activeLogId = null;
       busy = false;
       if (voiceNarration.speakingSeat === item.seat) voiceNarration.speakingSeat = null;
       if (queue.length) void drain();

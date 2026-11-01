@@ -26,7 +26,13 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
-import { speechPauseMs, voiceNarration } from '@/game/voice';
+import {
+  hasSpeakableText,
+  prepareNarration,
+  speechPauseMs,
+  voiceNarration,
+  waitForNarrationDone,
+} from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -107,16 +113,29 @@ export class GameController {
   }
 
   /**
-   * Give the narrator time to finish the line that was just added to the log.
-   * The real wall-clock duration is kept even when the player picks 2x/3x, so
-   * the voices do not overlap into an unintelligible crowd.
+   * Synthesize before the line is visible, then hold the controller until the
+   * narrator reports that this exact line finished playing. This keeps text
+   * and voice on the same speaker instead of letting the voice trail a queue
+   * behind the conversation.
    */
-  private async holdAfterSpeech(text: string): Promise<void> {
-    if (!voiceNarration.enabled || !/[\p{L}\p{N}]/u.test(text)) {
-      await this.wait(420);
+  private async speakLine(seat: number, text: string, claim?: Claim): Promise<void> {
+    const speakable = voiceNarration.enabled && hasSpeakableText(text);
+    if (speakable) {
+      voiceNarration.preparingSeat = seat;
+      try {
+        await prepareNarration(seat, text);
+      } finally {
+        if (voiceNarration.preparingSeat === seat) voiceNarration.preparingSeat = null;
+      }
+      if (this.aborted) throw new AbortError();
+    }
+
+    const logId = this.applySpeech(seat, text, claim);
+    if (voiceNarration.enabled && hasSpeakableText(text)) {
+      await waitForNarrationDone(logId, speechPauseMs(text) + 15_000);
       return;
     }
-    await this.wait(speechPauseMs(text) * this.store.speed);
+    await this.wait(420);
   }
 
   private wait(ms: number): Promise<void> {
@@ -450,13 +469,11 @@ export class GameController {
         });
         if (action.auto) {
           const speech = botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
-          this.applySpeech(seat, speech.text, speech.claim);
-          await this.holdAfterSpeech(speech.text);
+          await this.speakLine(seat, speech.text, speech.claim);
         } else {
           const text = (action.text ?? '').trim() || '过。';
           const claim = parseHumanClaim(text, seat, store.round);
-          this.applySpeech(seat, text, claim ?? undefined);
-          await this.holdAfterSpeech(text);
+          await this.speakLine(seat, text, claim ?? undefined);
         }
       } else {
         await this.delay(900, 1500);
@@ -464,22 +481,22 @@ export class GameController {
           ? await agentLines.get(seat)
           : botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
         const line = speech?.text ?? '……';
-        this.applySpeech(seat, line, speech?.claim);
-        await this.holdAfterSpeech(line);
+        await this.speakLine(seat, line, speech?.claim);
       }
     }
     store.speakerSeat = null;
     store.speaking = false;
   }
 
-  private applySpeech(seat: number, text: string, claim?: Claim): void {
+  private applySpeech(seat: number, text: string, claim?: Claim): number {
     const store = this.store;
-    store.addLog('speech', text, seat);
+    const logId = store.addLog('speech', text, seat);
     if (claim) {
       store.addClaim(claim);
       if (!this.claimedSeats.includes(seat)) this.claimedSeats.push(seat);
       store.addLog('public', `${seat} 号自称预言家，指认 ${claim.target} 号是狼人。`);
     }
+    return logId;
   }
 
   private async vote(): Promise<void> {
@@ -563,13 +580,11 @@ export class GameController {
           deadline: Date.now() + 30_000,
         });
         const text = (action.text ?? '').trim();
-        if (text) store.addLog('speech', text, seat);
-        await this.holdAfterSpeech(text || '……');
+        if (text) await this.speakLine(seat, text);
+        else await this.wait(420);
       } else {
         await this.wait(900);
-        const line = botLastWords();
-        store.addLog('speech', line, seat);
-        await this.holdAfterSpeech(line);
+        await this.speakLine(seat, botLastWords());
       }
     }
   }
