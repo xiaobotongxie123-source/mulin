@@ -223,7 +223,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
             </button>
           </header>
           <div class="log-sheet-list">
-            <div v-for="entry in store.logs" :key="entry.id" class="log-line" :class="`kind-${entry.kind}`">
+            <div v-for="entry in store.logs.filter((log) => log.revealed !== false)" :key="entry.id" class="log-line" :class="`kind-${entry.kind}`">
               <span class="log-mark">{{ entry.kind === 'night' ? '☾' : entry.kind === 'speech' ? '“' : entry.kind === 'private' ? '⌑' : '·' }}</span>
               <p>{{ entry.text }}</p>
             </div>

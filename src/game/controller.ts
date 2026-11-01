@@ -26,7 +26,13 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
-import { hasSpeakableText, voiceNarration, waitForNarrationDone } from '@/game/voice';
+import {
+  hasSpeakableText,
+  prepareNarration,
+  voiceNarration,
+  waitForNarrationDone,
+  waitForNarrationStarted,
+} from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -112,14 +118,28 @@ export class GameController {
    * and voice on the same speaker instead of letting the voice trail a queue
    * behind the conversation.
    */
-  private async speakLine(seat: number, text: string, claim?: Claim): Promise<void> {
-    // Show the line immediately and let the narrator fetch its voice. The
-    // next speaker is held until this exact line's audio actually finishes.
+  private async speakLine(
+    seat: number,
+    text: string,
+    claim?: Claim,
+    onStarted?: () => void,
+  ): Promise<void> {
+    const speakable = voiceNarration.enabled && hasSpeakableText(text);
+    if (speakable) {
+      // The line is not written to the log until its voice is ready, so the
+      // first painted text and the first audio frame belong to the same line.
+      await prepareNarration(seat, text);
+      if (this.aborted) throw new AbortError();
+    }
+
     const logId = this.applySpeech(seat, text, claim);
-    if (voiceNarration.enabled && hasSpeakableText(text)) {
+    if (speakable) {
+      await waitForNarrationStarted(logId, 5_000);
+      onStarted?.();
       await waitForNarrationDone(logId, 120_000);
       return;
     }
+    onStarted?.();
     await this.wait(420);
   }
 
@@ -440,6 +460,35 @@ export class GameController {
       for (const seat of botSeats) agentLines.set(seat, this.agentSpeech(seat));
     }
 
+    const aliveBot = (seat: number): boolean => {
+      const player = store.players.find((item) => item.seat === seat);
+      return Boolean(player?.alive && !player.isHuman);
+    };
+    const nextBotAfter = (seat: number): number | null => {
+      const index = order.indexOf(seat);
+      for (let i = index + 1; i < order.length; i += 1) {
+        const candidate = order[i];
+        if (aliveBot(candidate) && agentLines.has(candidate)) return candidate;
+      }
+      return null;
+    };
+    const prefetchNext = (seat: number): void => {
+      if (!voiceNarration.enabled) return;
+      const next = nextBotAfter(seat);
+      if (next === null) return;
+      void agentLines.get(next)?.then((speech) => {
+        if (speech?.text) void prepareNarration(next, speech.text);
+      }).catch(() => undefined);
+    };
+
+    // Warm the first AI line while the table settles, then keep the next line
+    // synthesizing under the current speaker's audio.
+    const firstBot = order.find((seat) => aliveBot(seat) && agentLines.has(seat));
+    if (firstBot !== undefined) {
+      void agentLines.get(firstBot)?.then((speech) => {
+        if (speech?.text) void prepareNarration(firstBot, speech.text);
+      }).catch(() => undefined);
+    }
 
     for (const seat of order) {
       if (this.aborted) return;
@@ -455,11 +504,11 @@ export class GameController {
         });
         if (action.auto) {
           const speech = botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
-          await this.speakLine(seat, speech.text, speech.claim);
+          await this.speakLine(seat, speech.text, speech.claim, () => prefetchNext(seat));
         } else {
           const text = (action.text ?? '').trim() || '过。';
           const claim = parseHumanClaim(text, seat, store.round);
-          await this.speakLine(seat, text, claim ?? undefined);
+          await this.speakLine(seat, text, claim ?? undefined, () => prefetchNext(seat));
         }
       } else {
         await this.delay(900, 1500);
@@ -467,7 +516,7 @@ export class GameController {
           ? await agentLines.get(seat)
           : botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
         const line = speech?.text ?? '……';
-        await this.speakLine(seat, line, speech?.claim);
+        await this.speakLine(seat, line, speech?.claim, () => prefetchNext(seat));
       }
     }
     store.speakerSeat = null;
@@ -476,7 +525,8 @@ export class GameController {
 
   private applySpeech(seat: number, text: string, claim?: Claim): number {
     const store = this.store;
-    const logId = store.addLog('speech', text, seat);
+    const hidden = voiceNarration.enabled && hasSpeakableText(text);
+    const logId = store.addLog('speech', text, seat, !hidden);
     if (claim) {
       store.addClaim(claim);
       if (!this.claimedSeats.includes(seat)) this.claimedSeats.push(seat);

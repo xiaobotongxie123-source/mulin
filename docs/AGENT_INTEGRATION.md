@@ -236,11 +236,13 @@ Content-Type: application/json
 灵矽公开 API 的 REST 部分没有单独的“文本转语音”接口；设备 WebSocket 协议支持 TTS。项目使用服务端桥接：
 
 ```
-GameController 写入 speech 日志（文字立即可读）
-  → useVoiceNarrator 请求 POST /api/tts { seat, text }
+GameController 预合成当前句
+  → POST /api/tts { seat, text }
   → server/tts.mjs：绑定设备 WebSocket + listen.detect.text_response
   → 16 kHz PCM → WAV
-  → 浏览器播放；播完这一句才进入下一位发言
+  → 写入隐藏 speech 日志
+  → 浏览器与文字同一帧开始播放/揭示
+  → 播完这一句才进入下一位；下一句在当前音频下预取
 ```
 
 - 每个座位在 `server/voice-profiles.mjs` 中有独立的音色配置；服务端在 `listen.detect` 的 `agent_params.voice.id/speed/pitch` 中逐条切换音色（这是灵矽文档支持的会话内音色切换）。
@@ -250,7 +252,7 @@ GameController 写入 speech 日志（文字立即可读）
 - 灵矽 TTS 超过约 7 秒未返回时，前端会取消该请求并立即改播浏览器中文语音，避免牌桌为了等待远端合成而卡住。
 - `POST /api/tts` 返回 `audio/wav`；服务端 TTS 未配置/失败时，前端自动回退到 `speechSynthesis`，仍按角色设置不同音高和语速。
 - 顶部扬声器按钮可关闭/开启角色语音；关闭后游戏节奏恢复原速。
-- 语音开启时文字先出现，当前句音频就绪后播放；`GameController` 会等待该句音频真正播放结束才进入下一位，避免“声音慢一个人”。
+- 语音开启时当前句先预合成，再写入隐藏日志；播放真正开始的那一帧才揭示文字，播完才进入下一位。后一句会在当前语音播放期间预取，减少等待。
 - 关闭语音后不请求合成、不等待，恢复原来的短停顿与快节奏。
 
 ---

@@ -1,10 +1,15 @@
 import { onBeforeUnmount, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
 import {
+  abortPreparations,
+  clearPreparedNarrations,
   markNarrationDone,
+  markNarrationStarted,
   normalizedSpeechText,
   resolveAllNarrations,
   setVoiceEnabled,
+  shouldSkipRemote,
+  takePreparedNarration,
   voiceNarration,
   VOICE_PROFILES,
 } from '@/game/voice';
@@ -35,7 +40,7 @@ function chooseBrowserVoice(seat: number): SpeechSynthesisVoice | null {
   return pool[0] ?? null;
 }
 
-function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<void> {
+function playBrowserSpeech(item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) {
       reject(new Error('browser speech synthesis unavailable'));
@@ -51,11 +56,22 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
     utterance.rate = profile.rate;
     utterance.volume = 1;
     let settled = false;
+    let started = false;
     let timer = 0;
+    let startPoll = 0;
+    const markStarted = () => {
+      if (started || settled) return;
+      started = true;
+      window.clearInterval(startPoll);
+      startPoll = 0;
+      onStarted();
+    };
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
+      window.clearInterval(startPoll);
+      utterance.onstart = null;
       utterance.onend = null;
       utterance.onerror = null;
       if (activePlaybackStop === stop) activePlaybackStop = null;
@@ -71,7 +87,11 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
       finish();
     };
     activePlaybackStop = stop;
-    utterance.onend = () => finish();
+    utterance.onstart = markStarted;
+    utterance.onend = () => {
+      markStarted();
+      finish();
+    };
     utterance.onerror = (event) => {
       if (event.error === 'interrupted' || event.error === 'canceled') finish();
       else finish(new Error(`browser speech ${event.error}`));
@@ -85,17 +105,28 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
     }, Math.min(180_000, Math.max(30_000, 1_500 + chars * 650)));
     synth.cancel();
     synth.speak(utterance);
+    // Some engines do not emit onstart; only reveal once the engine reports
+    // that it is actually speaking, never on a blind timer.
+    startPoll = window.setInterval(() => {
+      if (synth.speaking) markStarted();
+    }, 50);
     if (token() !== startToken) stop();
   });
 }
 
-function playWav(blob: Blob, item: NarrationItem, token: () => number): Promise<void> {
+function playWav(blob: Blob, item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     const startToken = token();
     let settled = false;
+    let started = false;
     let timer = 0;
+    const markStarted = () => {
+      if (started || settled) return;
+      started = true;
+      onStarted();
+    };
     const finish = (error?: Error, stopAudio = false) => {
       if (settled) return;
       settled = true;
@@ -131,10 +162,14 @@ function playWav(blob: Blob, item: NarrationItem, token: () => number): Promise<
     audio.preload = 'auto';
     audio.volume = 1;
     audio.onloadedmetadata = armSafetyTimer;
-    audio.onended = () => finish();
+    audio.onplaying = markStarted;
+    audio.onended = () => {
+      markStarted();
+      finish();
+    };
     audio.onerror = () => finish(new Error('audio playback failed'), true);
     timer = window.setTimeout(armSafetyTimer, 90_000);
-    void audio.play().catch((error) => finish(error instanceof Error ? error : new Error('audio play blocked'), true));
+    void audio.play().then(markStarted).catch((error) => finish(error instanceof Error ? error : new Error('audio play blocked'), true));
     activeAudio = audio;
     if (token() !== startToken) stop();
   });
@@ -157,6 +192,8 @@ export function useVoiceNarrator(store: GameStore) {
   function stopPlayback(): void {
     stopToken += 1;
     queue = [];
+    abortPreparations();
+    clearPreparedNarrations();
     activeController?.abort();
     activeController = null;
     activePlaybackStop?.();
@@ -167,10 +204,22 @@ export function useVoiceNarrator(store: GameStore) {
     if (activeLogId !== null) markNarrationDone(activeLogId);
     activeLogId = null;
     voiceNarration.speakingSeat = null;
+    store.revealAllLogs();
     resolveAllNarrations();
   }
 
-  async function playRemote(item: NarrationItem): Promise<void> {
+  async function playRemote(item: NarrationItem, onStarted: () => void): Promise<void> {
+    const prepared = takePreparedNarration(item.seat, item.text);
+    if (prepared) {
+      voiceNarration.provider = 'xrobot';
+      voiceNarration.lastError = '';
+      await playWav(prepared.blob, item, token, onStarted);
+      return;
+    }
+    if (shouldSkipRemote(item.seat, item.text)) {
+      throw new Error('TTS prefetch failed');
+    }
+
     const controller = new AbortController();
     activeController = controller;
     // Linx usually answers within a few seconds. If it is queued or the device
@@ -191,7 +240,7 @@ export function useVoiceNarrator(store: GameStore) {
       if (!blob.size || disposed) throw new Error('empty tts audio');
       voiceNarration.provider = 'xrobot';
       voiceNarration.lastError = '';
-      await playWav(blob, item, token);
+      await playWav(blob, item, token, onStarted);
     } finally {
       window.clearTimeout(timer);
       if (activeController === controller) activeController = null;
@@ -201,14 +250,25 @@ export function useVoiceNarrator(store: GameStore) {
   async function playItem(item: NarrationItem): Promise<void> {
     if (!voiceNarration.enabled || disposed) return;
     const startToken = token();
+    // Wait one paint so the line is on screen in the same frame the audio
+    // starts; the controller only writes the log after synthesis is ready.
+    await new Promise<void>((resolve) => {
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve());
+      else window.setTimeout(resolve, 0);
+    });
+    if (disposed || !voiceNarration.enabled || startToken !== token()) return;
+    const announceStarted = (logId: number) => {
+      store.revealLog(logId);
+      markNarrationStarted(logId);
+    };
     try {
-      await playRemote(item);
+      await playRemote(item, () => announceStarted(item.logId));
       if (startToken !== token()) return;
     } catch (error) {
       if (disposed || !voiceNarration.enabled || startToken !== token()) return;
       voiceNarration.lastError = error instanceof Error ? error.message : 'Linx TTS unavailable';
       voiceNarration.provider = 'browser';
-      await playBrowserSpeech(item, token);
+      await playBrowserSpeech(item, token, () => announceStarted(item.logId));
     }
   }
 
@@ -224,6 +284,7 @@ export function useVoiceNarrator(store: GameStore) {
     } catch (error) {
       voiceNarration.lastError = error instanceof Error ? error.message : 'speech failed';
     } finally {
+      store.revealLog(item.logId);
       markNarrationDone(item.logId);
       if (activeLogId === item.logId) activeLogId = null;
       busy = false;
