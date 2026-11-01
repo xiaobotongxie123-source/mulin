@@ -1,14 +1,11 @@
 import { onBeforeUnmount, watch } from 'vue';
 import { useGameStore } from '@/stores/game';
 import {
-  abortPreparations,
-  clearPreparedNarrations,
   markNarrationDone,
   normalizedSpeechText,
   resolveAllNarrations,
   setVoiceEnabled,
   speechPauseMs,
-  takePreparedNarration,
   voiceNarration,
   VOICE_PROFILES,
 } from '@/game/voice';
@@ -67,7 +64,8 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
       if (event.error === 'interrupted' || event.error === 'canceled') finish();
       else finish(new Error(`browser speech ${event.error}`));
     };
-    const timer = window.setTimeout(() => finish(), speechPauseMs(item.text) + 4_000);
+    const chars = Array.from(item.text).length;
+    const timer = window.setTimeout(() => finish(), Math.min(12_000, 1_200 + chars * 220));
     synth.cancel();
     synth.speak(utterance);
     if (token() !== startToken) finish();
@@ -132,24 +130,15 @@ export function useVoiceNarrator(store: GameStore) {
     if (activeLogId !== null) markNarrationDone(activeLogId);
     activeLogId = null;
     voiceNarration.speakingSeat = null;
-    voiceNarration.preparingSeat = null;
-    abortPreparations();
-    clearPreparedNarrations();
     resolveAllNarrations();
   }
 
   async function playRemote(item: NarrationItem): Promise<void> {
-    const prepared = takePreparedNarration(item.seat, item.text);
-    if (prepared) {
-      voiceNarration.provider = 'xrobot';
-      voiceNarration.lastError = '';
-      await playWav(prepared.blob, item, token, prepared.durationMs);
-      return;
-    }
-
     const controller = new AbortController();
     activeController = controller;
-    const timer = window.setTimeout(() => controller.abort(), 22_000);
+    // Linx usually answers within a few seconds. If it is queued or the device
+    // is busy, switch to the local voice instead of freezing the table.
+    const timer = window.setTimeout(() => controller.abort(), 7_000);
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',

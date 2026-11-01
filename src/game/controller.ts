@@ -26,13 +26,7 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
-import {
-  hasSpeakableText,
-  prepareNarration,
-  speechPauseMs,
-  voiceNarration,
-  waitForNarrationDone,
-} from '@/game/voice';
+import { hasSpeakableText, speechPauseMs, voiceNarration, waitForNarrationDone } from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -119,17 +113,8 @@ export class GameController {
    * behind the conversation.
    */
   private async speakLine(seat: number, text: string, claim?: Claim): Promise<void> {
-    const speakable = voiceNarration.enabled && hasSpeakableText(text);
-    if (speakable) {
-      voiceNarration.preparingSeat = seat;
-      try {
-        await prepareNarration(seat, text);
-      } finally {
-        if (voiceNarration.preparingSeat === seat) voiceNarration.preparingSeat = null;
-      }
-      if (this.aborted) throw new AbortError();
-    }
-
+    // Show the line immediately and let the narrator fetch its voice. The
+    // next speaker is held until this exact line's audio actually finishes.
     const logId = this.applySpeech(seat, text, claim);
     if (voiceNarration.enabled && hasSpeakableText(text)) {
       await waitForNarrationDone(logId, speechPauseMs(text) + 15_000);
@@ -454,6 +439,7 @@ export class GameController {
     if (agentReady) {
       for (const seat of botSeats) agentLines.set(seat, this.agentSpeech(seat));
     }
+
 
     for (const seat of order) {
       if (this.aborted) return;

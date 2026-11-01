@@ -40,7 +40,6 @@ export const voiceNarration = reactive({
   enabled: readEnabled(),
   provider: 'unknown' as VoiceProvider,
   speakingSeat: null as number | null,
-  preparingSeat: null as number | null,
   lastError: '',
 });
 
@@ -76,114 +75,8 @@ export function hasSpeakableText(text: string): boolean {
   return /[\p{L}\p{N}]/u.test(text);
 }
 
-export interface PreparedNarration {
-  blob: Blob;
-  durationMs: number;
-}
-
-const preparedNarrations = new Map<string, PreparedNarration>();
-const pendingNarrations = new Map<string, Promise<PreparedNarration | null>>();
-const pendingControllers = new Set<AbortController>();
 const narrationWaiters = new Map<number, { resolve: () => void; timer: number }>();
 const completedNarrations = new Set<number>();
-const MAX_PREPARED = 16;
-
-function narrationKey(seat: number, text: string): string {
-  return `${seat}:${normalizedSpeechText(text)}`;
-}
-
-async function wavDurationMs(blob: Blob): Promise<number> {
-  try {
-    const bytes = new Uint8Array(await blob.slice(0, 4096).arrayBuffer());
-    if (bytes.length < 44 || String.fromCharCode(...bytes.slice(0, 4)) !== 'RIFF') return 0;
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    let offset = 12;
-    let sampleRate = 16000;
-    let channels = 1;
-    let bits = 16;
-    while (offset + 8 <= bytes.length) {
-      const id = String.fromCharCode(...bytes.slice(offset, offset + 4));
-      const size = view.getUint32(offset + 4, true);
-      if (id === 'fmt ' && offset + 20 <= bytes.length) {
-        channels = view.getUint16(offset + 10, true) || 1;
-        sampleRate = view.getUint32(offset + 12, true) || 16000;
-        bits = view.getUint16(offset + 22, true) || 16;
-      }
-      if (id === 'data') {
-        const bytesPerFrame = channels * Math.max(1, Math.floor(bits / 8));
-        return Math.round((size / (sampleRate * bytesPerFrame)) * 1000);
-      }
-      offset += 8 + size + (size % 2);
-    }
-  } catch {
-    // Duration is only used to size a safety timeout.
-  }
-  return 0;
-}
-
-/**
- * Synthesize a line before it reaches the log, so text and audio can begin
- * together instead of the voice trailing one speaker behind.
- */
-export async function prepareNarration(seat: number, text: string): Promise<PreparedNarration | null> {
-  if (!voiceNarration.enabled || !hasSpeakableText(text)) return null;
-  const normalized = normalizedSpeechText(text);
-  if (!normalized) return null;
-  const key = narrationKey(seat, normalized);
-  const cached = preparedNarrations.get(key);
-  if (cached) return cached;
-  const pending = pendingNarrations.get(key);
-  if (pending) return pending;
-
-  const request = (async () => {
-    const controller = new AbortController();
-    pendingControllers.add(controller);
-    const timer = window.setTimeout(() => controller.abort(), 18_000);
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'audio/wav' },
-        body: JSON.stringify({ seat, text: normalized }),
-        signal: controller.signal,
-      });
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      if (!blob.size) return null;
-      const prepared = { blob, durationMs: await wavDurationMs(blob) };
-      preparedNarrations.set(key, prepared);
-      while (preparedNarrations.size > MAX_PREPARED) {
-        const oldest = preparedNarrations.keys().next().value;
-        if (oldest === undefined) break;
-        preparedNarrations.delete(oldest);
-      }
-      return prepared;
-    } catch {
-      return null;
-    } finally {
-      window.clearTimeout(timer);
-      pendingControllers.delete(controller);
-      pendingNarrations.delete(key);
-    }
-  })();
-  pendingNarrations.set(key, request);
-  return request;
-}
-
-export function takePreparedNarration(seat: number, text: string): PreparedNarration | null {
-  const key = narrationKey(seat, text);
-  const prepared = preparedNarrations.get(key) ?? null;
-  if (prepared) preparedNarrations.delete(key);
-  return prepared;
-}
-
-export function clearPreparedNarrations(): void {
-  preparedNarrations.clear();
-}
-
-export function abortPreparations(): void {
-  for (const controller of pendingControllers) controller.abort();
-  pendingControllers.clear();
-}
 
 export function waitForNarrationDone(logId: number, timeoutMs: number): Promise<void> {
   if (completedNarrations.has(logId)) {
