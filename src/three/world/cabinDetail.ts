@@ -42,6 +42,26 @@ export function addCabinDetails(group: THREE.Group): void {
     roughness: 0.98,
     side: THREE.DoubleSide,
   });
+  const copper = new THREE.MeshStandardMaterial({
+    color: '#8c6745',
+    metalness: 0.58,
+    roughness: 0.42,
+  });
+  const brass = new THREE.MeshStandardMaterial({
+    color: '#c29a5d',
+    metalness: 0.58,
+    roughness: 0.34,
+    emissive: '#2b1b0a',
+    emissiveIntensity: 0.28,
+  });
+  const warmGlass = new THREE.MeshBasicMaterial({
+    color: '#ffc67b',
+    transparent: true,
+    opacity: 0.9,
+    fog: false,
+  });
+  const straw = new THREE.MeshStandardMaterial({ color: '#8f7148', roughness: 1 });
+  const flower = new THREE.MeshStandardMaterial({ color: '#c96b4f', roughness: 0.7, emissive: '#3d1a0e', emissiveIntensity: 0.3 });
 
   const add = (mesh: THREE.Mesh, cast = false, receive = true): THREE.Mesh => {
     mesh.castShadow = cast;
@@ -158,12 +178,34 @@ export function addCabinDetails(group: THREE.Group): void {
     brace.position.y = 3.37;
   }
 
-  const vent = new THREE.Mesh(new THREE.CircleGeometry(0.29, 24), trimDark);
-  vent.position.set(0, 4.02, 2.35);
-  group.add(vent);
-  for (let i = 0; i < 4; i += 1) {
-    box(0.035, 0.54, 0.02, trim, 0, 4.02, 2.37, 0, 0, (i / 4) * Math.PI);
+  // A small round attic window gives the gable a warm, inhabited eye at dusk.
+  const atticBacking = new THREE.Mesh(new THREE.CircleGeometry(0.295, 26), trimDark);
+  atticBacking.position.set(0, 4.02, 2.345);
+  group.add(atticBacking);
+  const atticGlass = new THREE.Mesh(new THREE.CircleGeometry(0.255, 26), warmGlass);
+  atticGlass.position.set(0, 4.02, 2.355);
+  group.add(atticGlass);
+  const atticRing = new THREE.Mesh(new THREE.TorusGeometry(0.285, 0.028, 7, 24), iron);
+  atticRing.position.set(0, 4.02, 2.37);
+  group.add(atticRing);
+  const atticHalo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: glowTexture('255,183,104'),
+      color: '#ffc078',
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    }),
+  );
+  atticHalo.scale.setScalar(1.55);
+  atticHalo.position.set(0, 4.02, 2.32);
+  group.add(atticHalo);
+  for (let i = 0; i < 2; i += 1) {
+    box(0.026, 0.5, 0.02, trim, 0, 4.02, 2.38, 0, 0, (i / 2) * Math.PI);
   }
+  box(0.72, 0.07, 0.1, trim, 0, 3.68, 2.37, 0, 0, 0, true);
   // ---- layered roof courses --------------------------------------------
   const slope = Math.atan2(1.18, 2.62);
   const courses: THREE.BufferGeometry[] = [];
@@ -213,12 +255,60 @@ export function addCabinDetails(group: THREE.Group): void {
   ridgeCap.castShadow = true;
   group.add(ridgeCap);
 
+  // A hand-forged weather vane breaks the ridge silhouette against the moonlit sky.
+  const vane = new THREE.Group();
+  vane.position.set(-2.05, 4.44, 0.02);
+  const vanePole = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.025, 0.94, 6), iron);
+  vanePole.position.y = 0.47;
+  vanePole.castShadow = true;
+  vane.add(vanePole);
+  const vaneBar = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.032, 0.032), iron);
+  vaneBar.position.y = 0.91;
+  vaneBar.castShadow = true;
+  vane.add(vaneBar);
+  const vaneArrow = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.19, 4), iron);
+  vaneArrow.rotation.z = -Math.PI / 2;
+  vaneArrow.position.set(0.4, 0.91, 0);
+  vaneArrow.castShadow = true;
+  vane.add(vaneArrow);
+  const vaneFin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.025), iron);
+  vaneFin.position.set(-0.33, 0.91, 0);
+  vaneFin.rotation.z = 0.16;
+  vaneFin.castShadow = true;
+  vane.add(vaneFin);
+  const vaneCross = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.026, 0.026), iron);
+  vaneCross.position.y = 1.03;
+  vane.add(vaneCross);
+  group.add(vane);
+
   // Exposed rafter tails under the front and back eaves.
   for (const dir of [1, -1]) {
     for (let i = 0; i < 9; i += 1) {
       const x = -3.3 + i * 0.82;
       box(0.085, 0.11, 0.7, trim, x, 3.18, dir * 2.44, 0, 0, 0, true);
     }
+  }
+
+  // Copper rain gutter and a crooked downspout — small architecture that
+  // catches a thin warm line from the porch light.
+  const gutter = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 7.05, 8), copper);
+  gutter.rotation.z = Math.PI / 2;
+  gutter.position.set(0, 3.19, 2.48);
+  gutter.castShadow = true;
+  group.add(gutter);
+  for (const x of [-2.7, -0.9, 0.9, 2.7]) {
+    box(0.09, 0.09, 0.18, iron, x, 3.1, 2.44);
+  }
+  const downspout = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.055, 2.3, 8), copper);
+  downspout.position.set(-3.32, 2.0, 2.5);
+  downspout.castShadow = true;
+  group.add(downspout);
+  const elbow = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.048, 7, 12, Math.PI / 2), copper);
+  elbow.position.set(-3.16, 0.9, 2.5);
+  elbow.rotation.z = Math.PI / 2;
+  group.add(elbow);
+  for (const y of [1.25, 2.3]) {
+    box(0.18, 0.045, 0.08, iron, -3.32, y, 2.5);
   }
 
   // Moss has begun to take the roof back.
@@ -347,6 +437,11 @@ export function addCabinDetails(group: THREE.Group): void {
       sprig.rotation.z = (i - 2) * 0.16;
       group.add(sprig);
     }
+    for (let i = 0; i < 4; i += 1) {
+      const berry = new THREE.Mesh(new THREE.SphereGeometry(0.038, 6, 5), flower);
+      berry.position.set(x - 0.24 + i * 0.16, 1.65 + (i % 2) * 0.035, 2.55);
+      group.add(berry);
+    }
     // A dim curtain behind each pane.
     for (const side of [-1, 1]) {
       const curtain = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.72), cloth);
@@ -376,6 +471,43 @@ export function addCabinDetails(group: THREE.Group): void {
   for (const side of [-1, 1]) {
     box(0.09, 0.09, 1.34, trim, side * 1.79, 2.13, 3.55, 0, 0, 0.72, true);
   }
+  // A slack string of tiny warm bulbs under the porch beam. It is deliberately
+  // low-tech: the kind of detail that makes the cabin feel lived in at night.
+  const bulbPoints: THREE.Vector3[] = [];
+  for (let i = 0; i <= 8; i += 1) {
+    const t = i / 8;
+    const x = THREE.MathUtils.lerp(-1.78, 1.78, t);
+    const y = 2.42 - Math.sin(t * Math.PI) * 0.2;
+    bulbPoints.push(new THREE.Vector3(x, y, 3.49));
+  }
+  const wire = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bulbPoints), 28, 0.009, 4, false),
+    iron,
+  );
+  group.add(wire);
+  const bulbMat = new THREE.MeshBasicMaterial({ color: '#ffd49a', fog: false });
+  for (let i = 1; i < bulbPoints.length - 1; i += 1) {
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.037, 7, 6), bulbMat);
+    bulb.position.copy(bulbPoints[i]).add(new THREE.Vector3(0, -0.055, 0));
+    group.add(bulb);
+    if (i % 2 === 0) {
+      const bulbGlow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTexture('255,193,116'),
+          color: '#ffc77d',
+          transparent: true,
+          opacity: 0.42,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        }),
+      );
+      bulbGlow.scale.setScalar(0.36);
+      bulbGlow.position.copy(bulb.position);
+      group.add(bulbGlow);
+    }
+  }
+
   // Bench under the right-hand window.
   box(1.2, 0.09, 0.36, trim, 1.24, 0.58, 2.67, 0, 0, 0, true);
   for (const x of [0.72, 1.76]) {
@@ -384,6 +516,62 @@ export function addCabinDetails(group: THREE.Group): void {
   for (let i = 0; i < 3; i += 1) {
     box(1.05, 0.055, 0.07, trim, 1.24, 0.95 + i * 0.16, 2.86, -0.12, 0, 0, true);
   }
+  // A little rocking chair angled toward the path, with a faded cushion.
+  const chair = new THREE.Group();
+  chair.position.set(-2.02, 0.3, 3.64);
+  chair.rotation.y = 0.42;
+  const chairBox = (
+    width: number,
+    height: number,
+    depth: number,
+    material: THREE.Material,
+    x: number,
+    y: number,
+    z: number,
+    rx = 0,
+    ry = 0,
+    rz = 0,
+  ): THREE.Mesh => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, rz);
+    mesh.castShadow = true;
+    chair.add(mesh);
+    return mesh;
+  };
+  chairBox(0.48, 0.065, 0.42, trim, 0, 0.34, 0);
+  chairBox(0.4, 0.05, 0.36, cloth, 0, 0.385, 0.01);
+  for (const x of [-0.2, 0.2]) {
+    chairBox(0.06, 0.34, 0.06, trimDark, x, 0.17, -0.14);
+    chairBox(0.06, 0.34, 0.06, trimDark, x, 0.17, 0.14);
+    chairBox(0.06, 0.58, 0.06, trimDark, x, 0.61, -0.19);
+    chairBox(0.055, 0.05, 0.38, trim, x * 1.38, 0.53, 0.02);
+  }
+  chairBox(0.46, 0.065, 0.06, trim, 0, 0.91, -0.19);
+  for (let i = 0; i < 3; i += 1) {
+    chairBox(0.38, 0.045, 0.025, trim, 0, 0.6 + i * 0.12, -0.225);
+  }
+  for (const x of [-0.23, 0.23]) {
+    const runner = new THREE.Mesh(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([
+          new THREE.Vector3(x, 0.12, -0.34),
+          new THREE.Vector3(x, 0.075, -0.12),
+          new THREE.Vector3(x, 0.075, 0.12),
+          new THREE.Vector3(x, 0.12, 0.34),
+        ]),
+        12,
+        0.024,
+        5,
+        false,
+      ),
+      trimDark,
+    );
+    runner.castShadow = true;
+    chair.add(runner);
+  }
+  group.add(chair);
+
   // A barrel and a pair of boots make the porch feel used.
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.52, 12), plankMats[1]);
   barrel.position.set(-2.55, 0.27, 2.82);
@@ -397,6 +585,27 @@ export function addCabinDetails(group: THREE.Group): void {
   }
   box(0.22, 0.2, 0.3, trimDark, -0.72, 0.36, 2.58, 0, 0.22, 0, true);
   box(0.22, 0.2, 0.3, trimDark, -0.48, 0.36, 2.61, 0, -0.12, 0, true);
+
+  // A threshold mat and a broom leaning by the door.
+  box(0.86, 0.018, 0.38, cloth, 0, 0.307, 2.62, 0, 0, 0, true);
+  box(0.92, 0.015, 0.03, trimDark, 0, 0.322, 2.44);
+  const broom = new THREE.Group();
+  broom.position.set(-1.82, 0.31, 2.48);
+  broom.rotation.z = 0.14;
+  broom.rotation.x = -0.06;
+  const broomHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 1.4, 6), trim);
+  broomHandle.position.y = 0.82;
+  broomHandle.castShadow = true;
+  broom.add(broomHandle);
+  const bristles = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.15, 0.32, 9), straw);
+  bristles.position.y = 0.18;
+  bristles.castShadow = true;
+  broom.add(bristles);
+  const broomTie = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.012, 5, 12), iron);
+  broomTie.rotation.x = Math.PI / 2;
+  broomTie.position.y = 0.36;
+  broom.add(broomTie);
+  group.add(broom);
 
   // ---- firewood rack ----------------------------------------------------
   box(0.08, 1.1, 0.08, trimDark, 3.02, 0.62, 1.92, 0, 0, 0, true);
@@ -443,6 +652,60 @@ export function addCabinDetails(group: THREE.Group): void {
     glow.scale.setScalar(1.35);
     glow.position.set(x, 1.38, 4.8);
     group.add(glow);
+  }
+
+  // Warm pools of light on the porch boards and stone step. These are subtle
+  // additive planes, not extra lights, so they read as spill rather than haze.
+  const lightPoolTex = glowTexture('255,183,102');
+  const addLightPool = (x: number, z: number, width: number, depth: number, opacity: number): void => {
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, depth),
+      new THREE.MeshBasicMaterial({
+        map: lightPoolTex,
+        color: '#ffb86e',
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        fog: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(x, 0.335, z);
+    group.add(pool);
+  };
+  addLightPool(0, 3.35, 3.5, 1.35, 0.2);
+  addLightPool(-1.7, 3.55, 1.8, 1.0, 0.14);
+  addLightPool(1.7, 3.55, 1.8, 1.0, 0.14);
+  addLightPool(0, 4.1, 2.5, 1.5, 0.12);
+
+  // A pair of weathered stone planters frames the steps with evergreen and
+  // late berries. Their silhouettes help the porch read from a distance.
+  for (const side of [-1, 1]) {
+    const x = side * 1.62;
+    const urn = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 0.38, 10), stone);
+    urn.position.set(x, 0.28, 3.7);
+    urn.castShadow = true;
+    group.add(urn);
+    const urnRim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 16), trim);
+    urnRim.rotation.x = Math.PI / 2;
+    urnRim.position.set(x, 0.46, 3.7);
+    group.add(urnRim);
+    const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3, 0), mossDeep);
+    shrub.scale.set(1, 0.86, 1);
+    shrub.position.set(x, 0.68, 3.68);
+    shrub.castShadow = true;
+    group.add(shrub);
+    for (let i = 0; i < 3; i += 1) {
+      const berry = new THREE.Mesh(new THREE.SphereGeometry(0.033, 6, 5), flower);
+      berry.position.set(x - 0.12 + i * 0.1, 0.65 + (i % 2) * 0.08, 3.9);
+      group.add(berry);
+    }
+    const sprig = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.48, 6), moss);
+    sprig.position.set(x + 0.05, 0.85, 3.67);
+    sprig.rotation.z = side * 0.12;
+    group.add(sprig);
   }
 
   // A left-hand porch lantern to balance the existing right-hand one.

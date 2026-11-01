@@ -156,6 +156,7 @@ export class ForestWorld {
   private ambient: THREE.AmbientLight;
   private moonLight: THREE.DirectionalLight;
   private sunLight: THREE.DirectionalLight;
+  private pathFill: THREE.DirectionalLight;
 
   private dayMix = 0.08;
   private dayTarget = 0.08;
@@ -238,6 +239,13 @@ export class ForestWorld {
     rim.position.set(-16, 14, -22);
     rim.target.position.set(0, 3, -8);
     this.scene.add(rim, rim.target);
+
+    // A soft warm bounce from the cabin side lifts the backs of the travellers.
+    // Shadowless and low-contrast: porch spill rather than a second key light.
+    this.pathFill = new THREE.DirectionalLight('#e3c6a6', 1.35);
+    this.pathFill.position.set(-7, 7, 20);
+    this.pathFill.target.position.set(0, 1.1, 0);
+    this.scene.add(this.pathFill, this.pathFill.target);
 
     // ---- world ----------------------------------------------------------
     this.env = buildEnvironment();
@@ -579,6 +587,7 @@ export class ForestWorld {
     this.ambient.intensity = THREE.MathUtils.lerp(0.4, 0.72, day) + tableLift * 0.22;
     this.moonLight.intensity = THREE.MathUtils.lerp(1.3, 0.34, day);
     this.sunLight.intensity = day * 0.85;
+    this.pathFill.intensity = this.family === 'cabin' ? 1.35 * (1 - day * 0.6) : 0;
 
     this.env.starMaterial.opacity = 0.85 * (1 - day * 0.96);
     (this.env.moon.material as THREE.SpriteMaterial).opacity = 1 - day * 0.75;

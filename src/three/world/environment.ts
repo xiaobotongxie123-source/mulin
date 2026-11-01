@@ -306,8 +306,9 @@ export function buildEnvironment(): EnvironmentRefs {
       fog: false,
     }),
   );
-  moon.position.set(16, 29, -50);
-  moon.scale.setScalar(13);
+  // Put the moon inside the home/lobby camera framing instead of above the frame.
+  moon.position.set(4.5, 18, -58);
+  moon.scale.setScalar(10.5);
   moon.renderOrder = -8;
 
   const moonHalo = new THREE.Sprite(
@@ -322,7 +323,7 @@ export function buildEnvironment(): EnvironmentRefs {
     }),
   );
   moonHalo.position.copy(moon.position);
-  moonHalo.scale.setScalar(28);
+  moonHalo.scale.setScalar(24);
   moonHalo.renderOrder = -9;
 
   const starCount = 650;
