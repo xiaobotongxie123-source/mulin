@@ -60,7 +60,9 @@ const seatName = (seat: number): string => {
 const currentSpeech = computed(() => {
   if (!store.speakerSeat || !store.speaking) return null;
   const player = store.players.find((item) => item.seat === store.speakerSeat);
-  const entry = [...store.logs].reverse().find((log) => log.kind === 'speech' && log.seat === store.speakerSeat);
+  const entry = [...store.logs]
+    .reverse()
+    .find((log) => log.kind === 'speech' && log.seat === store.speakerSeat && log.revealed !== false);
   if (!entry) return null;
   return { text: entry.text, player, seat: store.speakerSeat };
 });

@@ -7,7 +7,7 @@ const store = useGameStore();
 const list = ref<HTMLElement | null>(null);
 const collapsed = ref(false);
 
-const entries = computed(() => store.logs.slice(-120));
+const entries = computed(() => store.logs.filter((entry) => entry.revealed !== false).slice(-120));
 
 function playerName(seat?: number): string {
   if (!seat) return '';

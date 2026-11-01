@@ -137,7 +137,7 @@ export const useGameStore = defineStore('game', () => {
     addLog('system', '第一夜开始了。所有人闭上眼睛。');
   }
 
-  function addLog(kind: LogKind, text: string, seat?: number): number {
+  function addLog(kind: LogKind, text: string, seat?: number, revealed = true): number {
     logId += 1;
     logs.value.push({
       id: logId,
@@ -146,9 +146,19 @@ export const useGameStore = defineStore('game', () => {
       kind,
       text,
       seat,
+      revealed,
     });
     if (logs.value.length > 220) logs.value.splice(0, logs.value.length - 220);
     return logId;
+  }
+
+  function revealLog(id: number): void {
+    const entry = logs.value.find((log) => log.id === id);
+    if (entry) entry.revealed = true;
+  }
+
+  function revealAllLogs(): void {
+    for (const entry of logs.value) entry.revealed = true;
   }
 
   function showBanner(title: string, sub: string, tone: BannerState['tone'], duration = 1900) {
@@ -294,6 +304,8 @@ export const useGameStore = defineStore('game', () => {
     newGame,
     startGame,
     addLog,
+    revealLog,
+    revealAllLogs,
     showBanner,
     pushToast,
     ask,

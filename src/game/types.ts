@@ -40,6 +40,8 @@ export interface LogEntry {
   kind: LogKind;
   text: string;
   seat?: number;
+  /** Speech entries stay hidden until their audio actually starts. */
+  revealed?: boolean;
 }
 
 export interface WitchPromptMeta {
