@@ -2,9 +2,6 @@
 
 Private entry: `https://106.52.117.169/mulin/`
 
-Access is protected by nginx Basic Auth over HTTPS; credentials are stored as a
-bcrypt hash in `/etc/mulin/access.htpasswd` on the server, never in git.
-
 The existing Moonveil site stays at `/`; Mulin is mounted under `/mulin/` and
 runs on `127.0.0.1:8787` behind nginx.
 
@@ -18,12 +15,34 @@ APP_BASE_PATH=/mulin/ npm run build
 `src/game/apiBase.ts` prefixes API calls with the same base, so the browser
 calls `/mulin/api/*` and nginx strips `/mulin/` before proxying to Node.
 
+## Access control
+
+Mulin uses a first-party access cookie instead of Basic Auth. Basic Auth can
+fail to authorize module scripts and stylesheet subresources in some mobile
+Safari versions, leaving a blank page.
+
+1. Open `https://106.52.117.169/mulin/?access=<ACCESS_TOKEN>` once. This sets
+   an `HttpOnly; Secure; SameSite=Lax` cookie for `/mulin/` and redirects to
+   the app.
+2. After that, `https://106.52.117.169/mulin/` works directly. The cookie lasts
+   30 days.
+3. The login form at `https://106.52.117.169/mulin/login.html` accepts the same
+   token if the direct link is inconvenient.
+
+The real token is only in the server nginx config, never in git. Rotate it by
+changing both token comparisons and the `Set-Cookie` value, then reload nginx.
+Anyone with the token URL can access the preview, so do not post it publicly.
+
+`auth_basic off;` is required in both Mulin locations because the parent
+Moonveil HTTPS server still has Basic Auth enabled.
+
 ## Server layout
 
 ```text
 /opt/mulin/app          deployed dist/, server/, .env, agent-registry.json
 /etc/systemd/system/mulin.service
 /etc/nginx/sites-available/moonveil   # /mulin locations
+/var/www/mulin-login/mulin/login.html
 ```
 
 The service uses the existing Node 24 binary at
@@ -42,26 +61,22 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now mulin
 ```
 
-Add `deploy/nginx-mulin-location.conf` to the HTTPS server block, then:
+Add the locations from `deploy/nginx-mulin-location.conf` to the HTTPS server
+block and install the login form:
 
 ```bash
+sudo install -D -m 644 deploy/login.html /var/www/mulin-login/mulin/login.html
 sudo nginx -t && sudo systemctl reload nginx
-curl -u mulin:<password> https://106.52.117.169/mulin/api/health
 ```
-
-## Access control
-
-`deploy/nginx-mulin-location.conf` keeps the Basic Auth directives. On the
-server, create or rotate the password hash with:
-
-```bash
-sudo htpasswd -B /etc/mulin/access.htpasswd mulin
-```
-
-The TLS certificate already covers `106.52.117.169`; Basic Auth credentials
-travel only inside HTTPS.
 
 ## Health check
+
+Exchange the token for a cookie, then reuse the cookie:
+
+```bash
+curl -c /tmp/mulin.cookie -o /dev/null "https://106.52.117.169/mulin/?access=<ACCESS_TOKEN>"
+curl -b /tmp/mulin.cookie https://106.52.117.169/mulin/api/health
+```
 
 Expected fields:
 
