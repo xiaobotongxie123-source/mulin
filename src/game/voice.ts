@@ -76,6 +76,13 @@ export function hasSpeakableText(text: string): boolean {
   return /[\p{L}\p{N}]/u.test(text);
 }
 
+/** Mobile browsers are inconsistent about async audio and pre-synthesis. */
+export function isMobileRuntime(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+}
+
 export interface PreparedNarration {
   blob: Blob;
   durationMs: number;
@@ -148,7 +155,7 @@ export async function prepareNarration(seat: number, text: string): Promise<Prep
   const request = (async () => {
     const controller = new AbortController();
     pendingControllers.add(controller);
-    const timer = window.setTimeout(() => controller.abort(), 7_000);
+    const timer = window.setTimeout(() => controller.abort(), 12_000);
     try {
       const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',
