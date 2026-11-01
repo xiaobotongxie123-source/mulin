@@ -1,6 +1,9 @@
 # Mulin production deployment
 
-Public entry: `https://106.52.117.169/mulin/`
+Private entry: `https://106.52.117.169/mulin/`
+
+Access is protected by nginx Basic Auth over HTTPS; credentials are stored as a
+bcrypt hash in `/etc/mulin/access.htpasswd` on the server, never in git.
 
 The existing Moonveil site stays at `/`; Mulin is mounted under `/mulin/` and
 runs on `127.0.0.1:8787` behind nginx.
@@ -43,8 +46,20 @@ Add `deploy/nginx-mulin-location.conf` to the HTTPS server block, then:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
-curl https://106.52.117.169/mulin/api/health
+curl -u mulin:<password> https://106.52.117.169/mulin/api/health
 ```
+
+## Access control
+
+`deploy/nginx-mulin-location.conf` keeps the Basic Auth directives. On the
+server, create or rotate the password hash with:
+
+```bash
+sudo htpasswd -B /etc/mulin/access.htpasswd mulin
+```
+
+The TLS certificate already covers `106.52.117.169`; Basic Auth credentials
+travel only inside HTTPS.
 
 ## Health check
 
