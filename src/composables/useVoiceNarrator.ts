@@ -41,6 +41,128 @@ function chooseBrowserVoice(seat: number): SpeechSynthesisVoice | null {
   return pool[0] ?? null;
 }
 
+let audioContext: AudioContext | null = null;
+let audioPrimed = false;
+let activeSource: AudioBufferSourceNode | null = null;
+
+function ensureAudioContext(): AudioContext | null {
+  if (audioContext) return audioContext;
+  if (typeof window === 'undefined') return null;
+  const Ctor = window.AudioContext
+    ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctor) return null;
+  try {
+    audioContext = new Ctor();
+  } catch {
+    return null;
+  }
+  return audioContext;
+}
+
+/** Must run inside a user gesture on iOS Safari. */
+function primeAudioContext(): void {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const playSilentFrame = () => {
+    if (audioPrimed) return;
+    audioPrimed = true;
+    try {
+      const buffer = ctx.createBuffer(1, 1, 22_050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    } catch {
+      // The context is still usable even if the priming frame fails.
+    }
+  };
+  if (ctx.state === 'running') {
+    playSilentFrame();
+    return;
+  }
+  void ctx.resume().then(() => {
+    if (ctx.state === 'running') playSilentFrame();
+  }).catch(() => undefined);
+}
+
+async function playWavWithContext(
+  blob: Blob,
+  item: NarrationItem,
+  token: () => number,
+  onStarted: () => void,
+): Promise<boolean> {
+  const ctx = ensureAudioContext();
+  if (!ctx) return false;
+  if (ctx.state !== 'running') {
+    try {
+      await ctx.resume();
+    } catch {
+      return false;
+    }
+  }
+  if (ctx.state !== 'running') return false;
+  let buffer: AudioBuffer;
+  try {
+    buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+  } catch {
+    return false;
+  }
+  if (token() !== stopToken) return true;
+
+  return new Promise<boolean>((resolve, reject) => {
+    const startToken = token();
+    let settled = false;
+    let timer = 0;
+    let source: AudioBufferSourceNode | null = null;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      if (source) {
+        source.onended = null;
+        try {
+          source.disconnect();
+        } catch {
+          // Already disconnected.
+        }
+      }
+      if (activeSource === source) activeSource = null;
+      if (activePlaybackStop === stop) activePlaybackStop = null;
+      if (token() !== startToken) {
+        resolve(true);
+        return;
+      }
+      if (error) reject(error);
+      else resolve(true);
+    };
+    const stop = () => {
+      try {
+        source?.stop();
+      } catch {
+        // Not started or already stopped.
+      }
+      finish();
+    };
+    try {
+      source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        onStarted();
+        finish();
+      };
+      activeSource = source;
+      activePlaybackStop = stop;
+      source.start(0);
+      onStarted();
+      timer = window.setTimeout(() => finish(), Math.max(20_000, buffer.duration * 1000 + 8_000));
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error('audio context playback failed'));
+    }
+    if (token() !== startToken) stop();
+  });
+}
+
 function playBrowserSpeech(item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window)) {
@@ -60,6 +182,7 @@ function playBrowserSpeech(item: NarrationItem, token: () => number, onStarted: 
     let started = false;
     let timer = 0;
     let startPoll = 0;
+    let startGuard = 0;
     const markStarted = () => {
       if (started || settled) return;
       started = true;
@@ -71,6 +194,7 @@ function playBrowserSpeech(item: NarrationItem, token: () => number, onStarted: 
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
+      window.clearTimeout(startGuard);
       window.clearInterval(startPoll);
       utterance.onstart = null;
       utterance.onend = null;
@@ -111,11 +235,22 @@ function playBrowserSpeech(item: NarrationItem, token: () => number, onStarted: 
     startPoll = window.setInterval(() => {
       if (synth.speaking) markStarted();
     }, 50);
+    // Some mobile engines accept speak() but never start. Do not keep the
+    // table frozen waiting for an utterance that will never play.
+    startGuard = window.setTimeout(() => {
+      if (started) return;
+      if (synth.speaking) {
+        markStarted();
+        return;
+      }
+      synth.cancel();
+      finish();
+    }, 2_500);
     if (token() !== startToken) stop();
   });
 }
 
-function playWav(blob: Blob, item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
+function playAudioElement(blob: Blob, item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -176,6 +311,12 @@ function playWav(blob: Blob, item: NarrationItem, token: () => number, onStarted
   });
 }
 
+async function playWav(blob: Blob, item: NarrationItem, token: () => number, onStarted: () => void): Promise<void> {
+  const handled = await playWavWithContext(blob, item, token, onStarted);
+  if (handled) return;
+  await playAudioElement(blob, item, token, onStarted);
+}
+
 let activeAudio: HTMLAudioElement | null = null;
 let activePlaybackStop: (() => void) | null = null;
 let activeController: AbortController | null = null;
@@ -201,6 +342,12 @@ export function useVoiceNarrator(store: GameStore) {
     activePlaybackStop = null;
     activeAudio?.pause();
     activeAudio = null;
+    try {
+      activeSource?.stop();
+    } catch {
+      // Already stopped.
+    }
+    activeSource = null;
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     if (activeLogId !== null) markNarrationDone(activeLogId);
     activeLogId = null;
@@ -333,14 +480,23 @@ export function useVoiceNarrator(store: GameStore) {
     if (document.hidden) stopPlayback();
   };
   const stopOnPageHide = () => stopPlayback();
+  const primeOnGesture = () => primeAudioContext();
   document.addEventListener('visibilitychange', stopWhenHidden);
   window.addEventListener('pagehide', stopOnPageHide);
+  document.addEventListener('pointerdown', primeOnGesture, { passive: true });
+  document.addEventListener('touchstart', primeOnGesture, { passive: true });
+  document.addEventListener('click', primeOnGesture);
+  document.addEventListener('keydown', primeOnGesture);
 
   onBeforeUnmount(() => {
     disposed = true;
     unwatch();
     document.removeEventListener('visibilitychange', stopWhenHidden);
     window.removeEventListener('pagehide', stopOnPageHide);
+    document.removeEventListener('pointerdown', primeOnGesture);
+    document.removeEventListener('touchstart', primeOnGesture);
+    document.removeEventListener('click', primeOnGesture);
+    document.removeEventListener('keydown', primeOnGesture);
     stopPlayback();
   });
 

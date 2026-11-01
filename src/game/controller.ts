@@ -28,6 +28,7 @@ import {
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
 import {
   hasSpeakableText,
+  isMobileRuntime,
   prepareNarration,
   voiceNarration,
   waitForNarrationDone,
@@ -124,16 +125,26 @@ export class GameController {
     claim?: Claim,
     onStarted?: () => void,
   ): Promise<void> {
+    const mobile = isMobileRuntime();
     const speakable = voiceNarration.enabled && hasSpeakableText(text);
-    if (speakable) {
-      // The line is not written to the log until its voice is ready, so the
-      // first painted text and the first audio frame belong to the same line.
+    if (speakable && !mobile) {
+      // Desktop: the line is not written to the log until its voice is ready,
+      // so the first painted text and the first audio frame belong to the same
+      // line. Mobile Safari can delay or block async audio, so never hold the
+      // text hostage there.
       await prepareNarration(seat, text);
       if (this.aborted) throw new AbortError();
     }
 
     const logId = this.applySpeech(seat, text, claim);
     if (speakable) {
+      if (mobile) {
+        // Text is already visible. Let the narrator fetch/play asynchronously
+        // and cap the wait so a blocked autoplay policy cannot freeze the game.
+        onStarted?.();
+        await waitForNarrationDone(logId, 20_000);
+        return;
+      }
       await waitForNarrationStarted(logId, 5_000);
       onStarted?.();
       await waitForNarrationDone(logId, 120_000);
@@ -525,7 +536,7 @@ export class GameController {
 
   private applySpeech(seat: number, text: string, claim?: Claim): number {
     const store = this.store;
-    const hidden = voiceNarration.enabled && hasSpeakableText(text);
+    const hidden = voiceNarration.enabled && hasSpeakableText(text) && !isMobileRuntime();
     const logId = store.addLog('speech', text, seat, !hidden);
     if (claim) {
       store.addClaim(claim);
