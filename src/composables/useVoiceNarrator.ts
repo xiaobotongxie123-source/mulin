@@ -5,7 +5,6 @@ import {
   normalizedSpeechText,
   resolveAllNarrations,
   setVoiceEnabled,
-  speechPauseMs,
   voiceNarration,
   VOICE_PROFILES,
 } from '@/game/voice';
@@ -52,39 +51,14 @@ function playBrowserSpeech(item: NarrationItem, token: () => number): Promise<vo
     utterance.rate = profile.rate;
     utterance.volume = 1;
     let settled = false;
+    let timer = 0;
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
-      if (error) reject(error);
-      else resolve();
-    };
-    utterance.onend = () => finish();
-    utterance.onerror = (event) => {
-      if (event.error === 'interrupted' || event.error === 'canceled') finish();
-      else finish(new Error(`browser speech ${event.error}`));
-    };
-    const chars = Array.from(item.text).length;
-    const timer = window.setTimeout(() => finish(), Math.min(12_000, 1_200 + chars * 220));
-    synth.cancel();
-    synth.speak(utterance);
-    if (token() !== startToken) finish();
-  });
-}
-
-function playWav(blob: Blob, item: NarrationItem, token: () => number, durationMs = 0): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    const startToken = token();
-    let settled = false;
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      audio.onended = null;
-      audio.onerror = null;
-      URL.revokeObjectURL(url);
+      utterance.onend = null;
+      utterance.onerror = null;
+      if (activePlaybackStop === stop) activePlaybackStop = null;
       if (token() !== startToken) {
         resolve();
         return;
@@ -92,21 +66,82 @@ function playWav(blob: Blob, item: NarrationItem, token: () => number, durationM
       if (error) reject(error);
       else resolve();
     };
+    const stop = () => {
+      synth.cancel();
+      finish();
+    };
+    activePlaybackStop = stop;
+    utterance.onend = () => finish();
+    utterance.onerror = (event) => {
+      if (event.error === 'interrupted' || event.error === 'canceled') finish();
+      else finish(new Error(`browser speech ${event.error}`));
+    };
+    // The timeout is only a last-resort guard for engines that never emit
+    // `end`; normal completion always waits for the real utterance to finish.
+    const chars = Array.from(item.text).length;
+    timer = window.setTimeout(() => {
+      synth.cancel();
+      finish();
+    }, Math.min(180_000, Math.max(30_000, 1_500 + chars * 650)));
+    synth.cancel();
+    synth.speak(utterance);
+    if (token() !== startToken) stop();
+  });
+}
+
+function playWav(blob: Blob, item: NarrationItem, token: () => number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    const startToken = token();
+    let settled = false;
+    let timer = 0;
+    const finish = (error?: Error, stopAudio = false) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      audio.onended = null;
+      audio.onerror = null;
+      audio.onloadedmetadata = null;
+      if (stopAudio) {
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {
+          // The element may already be detached.
+        }
+      }
+      URL.revokeObjectURL(url);
+      if (activePlaybackStop === stop) activePlaybackStop = null;
+      if (token() !== startToken) {
+        resolve();
+        return;
+      }
+      if (error) reject(error);
+      else resolve();
+    };
+    const stop = () => finish(undefined, true);
+    const armSafetyTimer = () => {
+      window.clearTimeout(timer);
+      const seconds = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 90;
+      // Wait for the real `ended` event; this only cuts a stuck element.
+      timer = window.setTimeout(() => finish(undefined, true), Math.max(20_000, seconds * 1000 + 8_000));
+    };
+    activePlaybackStop = stop;
     audio.preload = 'auto';
     audio.volume = 1;
+    audio.onloadedmetadata = armSafetyTimer;
     audio.onended = () => finish();
-    audio.onerror = () => finish(new Error('audio playback failed'));
-    const timer = window.setTimeout(() => finish(), (durationMs || speechPauseMs(item.text)) + 6_000);
-    void audio.play().catch((error) => finish(error instanceof Error ? error : new Error('audio play blocked')));
+    audio.onerror = () => finish(new Error('audio playback failed'), true);
+    timer = window.setTimeout(armSafetyTimer, 90_000);
+    void audio.play().catch((error) => finish(error instanceof Error ? error : new Error('audio play blocked'), true));
     activeAudio = audio;
-    if (token() !== startToken) {
-      audio.pause();
-      finish();
-    }
+    if (token() !== startToken) stop();
   });
 }
 
 let activeAudio: HTMLAudioElement | null = null;
+let activePlaybackStop: (() => void) | null = null;
 let activeController: AbortController | null = null;
 let stopToken = 0;
 
@@ -124,6 +159,8 @@ export function useVoiceNarrator(store: GameStore) {
     queue = [];
     activeController?.abort();
     activeController = null;
+    activePlaybackStop?.();
+    activePlaybackStop = null;
     activeAudio?.pause();
     activeAudio = null;
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
