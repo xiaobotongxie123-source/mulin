@@ -98,7 +98,7 @@ const routeKey = computed(() => String(route.name ?? route.path));
 }
 
 .app.is-daylight .frame-shade {
-  opacity: 0.24;
+  opacity: 0.55;
 }
 
 .view-layer {

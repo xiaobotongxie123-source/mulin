@@ -85,13 +85,13 @@ const PRESETS: Record<WorldMode, CameraPreset> = {
 };
 
 const NIGHT_FOG = new THREE.Color('#0a1411');
-const DAY_FOG = new THREE.Color('#e1e6dc');
+const DAY_FOG = new THREE.Color('#d7ded2');
 const NIGHT_HEMI_SKY = new THREE.Color('#7f9db3');
-const DAY_HEMI_SKY = new THREE.Color('#e2f0f2');
+const DAY_HEMI_SKY = new THREE.Color('#d7e4e1');
 const NIGHT_HEMI_GROUND = new THREE.Color('#211a12');
-const DAY_HEMI_GROUND = new THREE.Color('#aaa085');
+const DAY_HEMI_GROUND = new THREE.Color('#938b76');
 const NIGHT_AMBIENT = new THREE.Color('#2a3a33');
-const DAY_AMBIENT = new THREE.Color('#c7d2cf');
+const DAY_AMBIENT = new THREE.Color('#b8b8a5');
 const WINDOW_NIGHT = new THREE.Color('#ffc06a');
 const WINDOW_DAY = new THREE.Color('#d8c9a8');
 const DEATH_GREY = new THREE.Color('#4a4a42');
@@ -477,15 +477,15 @@ export class ForestWorld {
         this.setDial(DIAL_NIGHT);
         break;
       case 'dawn':
-        this.setDayTarget(0.88);
+        this.setDayTarget(0.58);
         this.setDial(DIAL_NIGHT);
         break;
       case 'discussion':
-        this.setDayTarget(0.94);
+        this.setDayTarget(0.64);
         this.setDial(DIAL_NIGHT);
         break;
       case 'vote':
-        this.setDayTarget(0.9);
+        this.setDayTarget(0.58);
         this.setDial(DIAL_VOTE);
         break;
       case 'result':
@@ -586,31 +586,31 @@ export class ForestWorld {
     this.env.skyUniforms.uDay.value = day;
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.copy(NIGHT_FOG).lerp(DAY_FOG, day);
-    fog.density = THREE.MathUtils.lerp(0.018, 0.0006, day);
+    fog.density = THREE.MathUtils.lerp(0.018, 0.006, day);
 
     const tableLift = this.family === 'table' ? 1 : 0;
     const tableDay = tableLift * day;
-    this.hemi.intensity = THREE.MathUtils.lerp(0.56, 1.16, day) + tableLift * 0.24 + tableDay * 0.82;
+    this.hemi.intensity = THREE.MathUtils.lerp(0.56, 1.16, day) + tableLift * 0.24 + tableDay * 0.35;
     this.hemi.color.copy(NIGHT_HEMI_SKY).lerp(DAY_HEMI_SKY, day);
     this.hemi.groundColor.copy(NIGHT_HEMI_GROUND).lerp(DAY_HEMI_GROUND, day);
-    this.ambient.intensity = THREE.MathUtils.lerp(0.4, 0.78, day) + tableLift * 0.22 + tableDay * 0.58;
+    this.ambient.intensity = THREE.MathUtils.lerp(0.4, 0.78, day) + tableLift * 0.22 + tableDay * 0.35;
     this.ambient.color.copy(NIGHT_AMBIENT).lerp(DAY_AMBIENT, day);
     this.moonLight.intensity = THREE.MathUtils.lerp(1.3, 0.28, day);
-    this.sunLight.intensity = day * (1.18 + tableDay * 2.4);
-    this.renderer.toneMappingExposure = (this.family === 'table' ? 1.2 : 1.08) + day * 0.1 + tableDay * 0.5;
-    if (this.bloom) this.bloom.strength = (this.isMobile ? 0.28 : 0.42) * (1 - day * 0.55);
+    this.sunLight.intensity = day * (1.18 + tableDay * 1.5);
+    this.renderer.toneMappingExposure = (this.family === 'table' ? 1.2 : 1.08) + day * 0.1 + tableDay * 0.2;
+    if (this.bloom) this.bloom.strength = (this.isMobile ? 0.28 : 0.42) * (1 - day * 0.4);
     this.pathFill.intensity = this.family === 'cabin' ? 1.35 * (1 - day * 0.6) : 0;
 
     // Lift the forest out of its night palette as the table enters daylight.
     // Emissive tint is gentler than flooding the scene with another white light.
     const pineMat = this.env.pines[0]?.material as THREE.MeshStandardMaterial | undefined;
     if (pineMat) {
-      pineMat.emissive.set('#b4cc9e');
-      pineMat.emissiveIntensity = day * 0.86;
+      pineMat.emissive.set('#8fa77e');
+      pineMat.emissiveIntensity = day * 0.24;
     }
     const groundMat = this.env.ground.material as THREE.MeshStandardMaterial;
-    groundMat.emissive.set('#d8cba3');
-    groundMat.emissiveIntensity = day * 0.74;
+    groundMat.emissive.set('#bdb394');
+    groundMat.emissiveIntensity = day * 0.22;
 
     this.env.starMaterial.opacity = 0.85 * (1 - day * 0.96);
     (this.env.moon.material as THREE.SpriteMaterial).opacity = 1 - day * 0.75;
@@ -631,17 +631,17 @@ export class ForestWorld {
 
     // candles and fire
     const flicker = 0.88 + Math.sin(t * 8.4) * 0.06 + Math.sin(t * 21.7) * 0.035;
-    this.table.candleLight.intensity = 7 * flicker * (1 - day * 0.92);
-    this.tableKey.intensity = 58 * (1 - day * 0.9) * (0.97 + Math.sin(t * 3.7) * 0.03);
+    this.table.candleLight.intensity = 7 * flicker * (1 - day * 0.6);
+    this.tableKey.intensity = 58 * (1 - day * 0.58) * (0.97 + Math.sin(t * 3.7) * 0.03);
     this.tableRim.intensity = 26 * (1 - day * 0.62);
-    this.tableHalo.intensity = 38 * (1 - day * 0.9);
+    this.tableHalo.intensity = 38 * (1 - day * 0.55);
     for (let i = 0; i < this.table.flames.length; i += 1) {
       const flame = this.table.flames[i];
       const wobble = 1 + Math.sin(t * 11 + i * 2.1) * 0.12;
       flame.scale.set(0.25 * wobble, 0.55 * (1 + Math.sin(t * 9 + i) * 0.1), 1);
       flame.position.y = (flame.userData.baseY as number) + Math.sin(t * 7 + i) * 0.02;
     }
-    this.env.fireLight.intensity = 8.5 * (0.9 + Math.sin(t * 6.2) * 0.06 + Math.sin(t * 13.1) * 0.04) * (1 - day * 0.82);
+    this.env.fireLight.intensity = 8.5 * (0.9 + Math.sin(t * 6.2) * 0.06 + Math.sin(t * 13.1) * 0.04) * (1 - day * 0.45);
     for (let i = 0; i < this.env.fireFlames.length; i += 1) {
       const flame = this.env.fireFlames[i];
       const wobble = 1 + Math.sin(t * 9.5 + i * 1.7) * 0.16;
@@ -674,12 +674,12 @@ export class ForestWorld {
     for (const [index, sprite] of this.env.mist.entries()) {
       const phase = sprite.userData.phase as number;
       sprite.position.x += Math.sin(t * 0.05 + phase) * 0.004;
-      (sprite.material as THREE.SpriteMaterial).opacity = 0.05 * (1 + Math.sin(t * 0.11 + index)) * (1 - day);
+      (sprite.material as THREE.SpriteMaterial).opacity = 0.05 * (1 + Math.sin(t * 0.11 + index)) * (1 - day * 0.7);
     }
     for (const cloud of this.env.clouds) {
       cloud.position.x += (cloud.userData.drift as number) * dt;
       if (cloud.position.x > 62) cloud.position.x = -62;
-      (cloud.material as THREE.SpriteMaterial).opacity = 0.075 * (1 - day * 0.72);
+      (cloud.material as THREE.SpriteMaterial).opacity = 0.075 * (1 - day * 0.55);
     }
 
     this.dialColor.lerp(this.dialTarget, Math.min(1, dt * 1.5));
