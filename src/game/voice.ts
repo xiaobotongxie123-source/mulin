@@ -155,7 +155,7 @@ export async function prepareNarration(seat: number, text: string): Promise<Prep
   const request = (async () => {
     const controller = new AbortController();
     pendingControllers.add(controller);
-    const timer = window.setTimeout(() => controller.abort(), 12_000);
+    const timer = window.setTimeout(() => controller.abort(), 18_000);
     try {
       const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',

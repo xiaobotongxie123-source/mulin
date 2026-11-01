@@ -385,7 +385,7 @@ export function useVoiceNarrator(store: GameStore) {
     activeController = controller;
     // Linx usually answers within a few seconds. If it is queued or the device
     // is busy, switch to the local voice instead of freezing the table.
-    const timer = window.setTimeout(() => controller.abort(), 7_000);
+    const timer = window.setTimeout(() => controller.abort(), 20_000);
     try {
       const response = await fetch(apiUrl('/api/tts'), {
         method: 'POST',
