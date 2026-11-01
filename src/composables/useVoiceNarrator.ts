@@ -230,9 +230,18 @@ export function useVoiceNarrator(store: GameStore) {
     else voiceNarration.lastError = '';
   }
 
+  const stopWhenHidden = () => {
+    if (document.hidden) stopPlayback();
+  };
+  const stopOnPageHide = () => stopPlayback();
+  document.addEventListener('visibilitychange', stopWhenHidden);
+  window.addEventListener('pagehide', stopOnPageHide);
+
   onBeforeUnmount(() => {
     disposed = true;
     unwatch();
+    document.removeEventListener('visibilitychange', stopWhenHidden);
+    window.removeEventListener('pagehide', stopOnPageHide);
     stopPlayback();
   });
 
