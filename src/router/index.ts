@@ -14,7 +14,7 @@ declare module 'vue-router' {
 }
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: HomeView, meta: { world: 'home' } },
     { path: '/lobby', name: 'lobby', component: LobbyView, meta: { world: 'lobby' } },

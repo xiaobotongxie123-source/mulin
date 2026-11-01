@@ -1,0 +1,26 @@
+[Unit]
+Description=Mulin Nightfall game and TTS bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mulin
+Group=mulin
+WorkingDirectory=/opt/mulin/app
+Environment=NODE_ENV=production
+Environment=PORT=8787
+ExecStart=/opt/moonveil/node/bin/node server/index.mjs
+Restart=always
+RestartSec=3
+KillMode=control-group
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+MemoryMax=512M
+TasksMax=96
+
+[Install]
+WantedBy=multi-user.target
