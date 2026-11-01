@@ -64,7 +64,7 @@ const currentSpeech = computed(() => {
     .reverse()
     .find((log) => log.kind === 'speech' && log.seat === store.speakerSeat && log.revealed !== false);
   if (!entry) return null;
-  return { text: entry.text, player, seat: store.speakerSeat };
+  return { id: entry.id, text: entry.text, player, seat: store.speakerSeat };
 });
 
 function point(seat: number) {
@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
       />
     </div>
 
-    <GameLog ref="logRef" />
+    <GameLog ref="logRef" :hidden-id="currentSpeech?.id" />
     <RoleCard />
     <ActionDock />
     <PhaseBanner />
