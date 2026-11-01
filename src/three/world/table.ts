@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import type { Character } from '@/data/characters';
 import { flameTexture, glowTexture, runeDialTexture, stoneTexture, woodTexture } from '../textures';
-import { mergeStaticMeshes } from './mergeStatic';
 
 export interface SeatFigureRefs {
   seat: number;
@@ -414,11 +413,6 @@ function buildFigure(seat: number, character: Character): SeatFigureRefs {
   selectedRing.position.y = 0.05;
   group.add(selectedRing);
 
-  // Keep eyes and legs independent (they blink/step), but collapse the rest of
-  // the figure into a few draws per material, and the chair into a couple more.
-  mergeStaticMeshes(bodyGroup, { exclude: [openEyes, closedEyes, leftLeg, rightLeg] });
-  mergeStaticMeshes(group, { exclude: [bodyGroup, ring, selectedRing, lanternGlow] });
-
   return {
     seat,
     group,
@@ -598,11 +592,6 @@ export function buildTable(players: Array<{ seat: number; character: Character }
   humanChair.position.set(0, 0, 6.1);
   humanChair.rotation.y = Math.PI;
   group.add(humanChair);
-  mergeStaticMeshes(humanChair);
-
-  // Merge the table, candles, cards and background furniture. Seat figures are
-  // animated independently and stay untouched.
-  mergeStaticMeshes(group, { exclude: [...seats.values()].map((figure) => figure.group) });
 
   return {
     group,
