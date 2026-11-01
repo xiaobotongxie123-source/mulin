@@ -26,7 +26,7 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
-import { hasSpeakableText, speechPauseMs, voiceNarration, waitForNarrationDone } from '@/game/voice';
+import { hasSpeakableText, voiceNarration, waitForNarrationDone } from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -117,7 +117,7 @@ export class GameController {
     // next speaker is held until this exact line's audio actually finishes.
     const logId = this.applySpeech(seat, text, claim);
     if (voiceNarration.enabled && hasSpeakableText(text)) {
-      await waitForNarrationDone(logId, speechPauseMs(text) + 15_000);
+      await waitForNarrationDone(logId, 120_000);
       return;
     }
     await this.wait(420);
