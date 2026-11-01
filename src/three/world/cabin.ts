@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glowTexture, shingleTexture, smokeTexture, stoneTexture, woodTexture } from '../textures';
 import { addCabinDetails } from './cabinDetail';
+import { mergeStaticMeshes } from './mergeStatic';
 
 export interface CabinRefs {
   group: THREE.Group;
@@ -291,6 +292,10 @@ export function buildCabin(scale = 1): CabinRefs {
   group.add(porchLight);
 
   addCabinDetails(group);
+
+  // The cabin is a static assembly of hundreds of logs, shingles and trims.
+  // Merge its opaque geometry per material before it reaches the render loop.
+  mergeStaticMeshes(group);
 
   return {
     group,

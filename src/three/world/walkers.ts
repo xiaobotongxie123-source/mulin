@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { glowTexture } from '../textures';
+import { mergeStaticMeshes } from './mergeStatic';
 
 export interface WalkerRefs {
   group: THREE.Group;
@@ -451,6 +452,16 @@ function createTraveler(def: TravelerDef): Traveler {
     hatCone.castShadow = true;
     body.add(hatCone);
   }
+
+  // Each traveler's body is static apart from the limb/lantern/scarf groups.
+  // Merge those static parts and the contents of each animated group locally.
+  mergeStaticMeshes(body, { exclude: [leftLeg, rightLeg, leftArm, rightArm, lantern, scarfTail] });
+  mergeStaticMeshes(leftLeg);
+  mergeStaticMeshes(rightLeg);
+  mergeStaticMeshes(leftArm);
+  mergeStaticMeshes(rightArm);
+  mergeStaticMeshes(lantern);
+  mergeStaticMeshes(scarfTail);
 
   return {
     root,

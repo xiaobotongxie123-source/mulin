@@ -133,8 +133,11 @@ export class ForestWorld {
   private controls: OrbitControls;
   private composer: EffectComposer | null = null;
   private bloom: UnrealBloomPass | null = null;
-  private clock = new THREE.Clock();
   private raf = 0;
+  private looping = false;
+  private lastFrameAt = 0;
+  private shadowElapsed = 0;
+  private lastActivityAt = performance.now();
   private elapsed = 0;
   private disposed = false;
 
@@ -185,17 +188,27 @@ export class ForestWorld {
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: !this.isMobile,
-      powerPreference: 'high-performance',
+      // Avoid forcing the discrete GPU on macOS. The cinematic scene does not
+      // need a high-performance context, and `high-performance` is the single
+      // biggest cause of fan noise on dual-GPU laptops.
+      antialias: false,
+      powerPreference: 'default',
       alpha: false,
+      stencil: false,
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.isMobile ? 1.6 : 1.9));
+    // Retina 1.9x + bloom means ~5M fragments per frame. 1.3x keeps the
+    // atmosphere intact while roughly halving the fill-rate cost.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.isMobile ? 1.15 : 1.3));
     this.renderer.setClearColor('#070d0a', 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = !this.isMobile;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The moon and cabin are static; refresh the shadow map a few times per
+    // second instead of redrawing it on every display frame.
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
 
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.FogExp2(NIGHT_FOG, 0.018);
@@ -319,7 +332,10 @@ export class ForestWorld {
       );
       this.composer.addPass(this.bloom);
       this.composer.addPass(new OutputPass());
-      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      // Render the post chain at CSS resolution; OutputPass upscales to the
+      // capped device pixel ratio. Bloom is soft anyway, so the difference is
+      // invisible but the fragment cost drops by ~35%.
+      this.composer.setPixelRatio(Math.min(this.renderer.getPixelRatio(), 1));
     } catch (error) {
       console.warn('[mulin-night] postprocessing unavailable, falling back to direct render', error);
       this.composer = null;
@@ -333,6 +349,14 @@ export class ForestWorld {
 
   private bindEvents(): void {
     window.addEventListener('resize', this.onResize);
+    document.addEventListener('visibilitychange', this.onVisibility);
+    window.addEventListener('blur', this.onWindowBlur);
+    window.addEventListener('focus', this.onWindowFocus);
+    window.addEventListener('pointerdown', this.onActivity, { passive: true });
+    window.addEventListener('pointermove', this.onActivity, { passive: true });
+    window.addEventListener('wheel', this.onActivity, { passive: true });
+    window.addEventListener('keydown', this.onActivity);
+    window.addEventListener('touchstart', this.onActivity, { passive: true });
     const parent = this.canvas.parentElement;
     if (parent && 'ResizeObserver' in window) {
       this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -341,6 +365,30 @@ export class ForestWorld {
   }
 
   private resizeObserver: ResizeObserver | null = null;
+
+  private onActivity = (): void => {
+    this.lastActivityAt = performance.now();
+  };
+
+  private onVisibility = (): void => {
+    if (document.hidden) {
+      this.stopLoop();
+      return;
+    }
+    this.lastActivityAt = performance.now();
+    this.lastFrameAt = 0;
+    this.startLoop();
+  };
+
+  private onWindowBlur = (): void => {
+    this.stopLoop();
+  };
+
+  private onWindowFocus = (): void => {
+    this.lastActivityAt = performance.now();
+    this.lastFrameAt = 0;
+    this.startLoop();
+  };
 
   resize(): void {
     const parent = this.canvas.parentElement;
@@ -369,6 +417,7 @@ export class ForestWorld {
 
   setMode(mode: WorldMode): void {
     if (mode === this.mode) return;
+    this.lastActivityAt = performance.now();
     const nextFamily: SceneFamily = mode === 'home' || mode === 'lobby' ? 'cabin' : 'table';
     const preset = this.presetFor(mode);
     const familyChange = nextFamily !== this.family;
@@ -469,6 +518,7 @@ export class ForestWorld {
   }
 
   setPhase(phase: Phase, winner: Faction | null): void {
+    this.lastActivityAt = performance.now();
     // Night is the only phase where the whole table closes their eyes.
     this.eyesClosed = phase === 'night';
     switch (phase) {
@@ -507,6 +557,7 @@ export class ForestWorld {
 
   setSpeaker(seat: number | null): void {
     this.speaker = seat;
+    this.lastActivityAt = performance.now();
   }
 
   setSelected(seat: number | null): void {
@@ -525,24 +576,65 @@ export class ForestWorld {
     if (state) state.dead = !alive;
   }
 
+  private get frameInterval(): number {
+    // A stable 30 fps is the best fit for both 60 Hz and 120 Hz panels: two
+    // rAF ticks or four rAF ticks, with no uneven 1/2-frame cadence. This is a
+    // slow cinematic scene, not a competitive shooter, and 30 fps is a large
+    // sustained GPU saving. When nobody has interacted for a while, drop to
+    // 20 fps; any pointer/keyboard activity immediately restores 30 fps.
+    const idle =
+      performance.now() - this.lastActivityAt > 7_000 &&
+      !this.introActive &&
+      !this.camTween &&
+      this.speaker === null;
+    return 1000 / (idle ? 20 : 30);
+  }
+
   private startLoop(): void {
-    const loop = (): void => {
-      if (this.disposed) return;
+    if (this.looping || this.disposed) return;
+    this.looping = true;
+    const loop = (now: number): void => {
+      if (this.disposed) {
+        this.looping = false;
+        return;
+      }
+      if (document.hidden) {
+        this.raf = 0;
+        this.looping = false;
+        return;
+      }
       this.raf = requestAnimationFrame(loop);
-      const dt = Math.min(this.clock.getDelta(), 0.05);
+      const interval = this.frameInterval;
+      // rAF is quantized to the display refresh. Allow a little scheduling
+      // jitter so a 30 fps target lands on every second 60 Hz tick instead of
+      // accidentally skipping to every third tick (20 fps).
+      if (this.lastFrameAt && now - this.lastFrameAt < interval * 0.85) return;
+      const dt = this.lastFrameAt ? Math.min((now - this.lastFrameAt) / 1000, 0.05) : 1 / 60;
+      this.lastFrameAt = now;
       this.elapsed += dt;
       this.updateCamera(dt);
       this.updateAtmosphere(dt);
-      this.walkers.update(performance.now() / 1000);
-      this.updateSeats(dt);
+      if (this.walkers.group.visible) this.walkers.update(performance.now() / 1000);
+      if (this.tableGroup.visible) this.updateSeats(dt);
       this.controls.update();
       if (!this.firstFrameDone) {
         this.firstFrameDone = true;
         this.onFirstFrame?.();
       }
+      this.shadowElapsed += dt;
+      if (this.shadowElapsed >= 0.25) {
+        this.shadowElapsed = 0;
+        this.renderer.shadowMap.needsUpdate = true;
+      }
       this.render();
     };
     this.raf = requestAnimationFrame(loop);
+  }
+
+  private stopLoop(): void {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.looping = false;
   }
 
   private updateCamera(dt: number): void {
@@ -598,7 +690,10 @@ export class ForestWorld {
     this.moonLight.intensity = THREE.MathUtils.lerp(1.3, 0.28, day);
     this.sunLight.intensity = day * (1.18 + tableDay * 1.5);
     this.renderer.toneMappingExposure = (this.family === 'table' ? 1.2 : 1.08) + day * 0.1 + tableDay * 0.2;
-    if (this.bloom) this.bloom.strength = (this.isMobile ? 0.28 : 0.42) * (1 - day * 0.4);
+    if (this.bloom) {
+      this.bloom.enabled = day < 0.46;
+      this.bloom.strength = (this.isMobile ? 0.24 : 0.34) * (1 - day * 0.4);
+    }
     this.pathFill.intensity = this.family === 'cabin' ? 1.35 * (1 - day * 0.6) : 0;
 
     // Lift the forest out of its night palette as the table enters daylight.
@@ -765,14 +860,24 @@ export class ForestWorld {
   }
 
   private render(): void {
-    if (this.composer) this.composer.render();
+    // In daylight the bloom pass contributes almost nothing; skip the whole
+    // offscreen chain and draw directly to the default framebuffer.
+    if (this.composer && this.bloom?.enabled !== false) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }
 
   dispose(): void {
     this.disposed = true;
-    cancelAnimationFrame(this.raf);
+    this.stopLoop();
     window.removeEventListener('resize', this.onResize);
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    window.removeEventListener('blur', this.onWindowBlur);
+    window.removeEventListener('focus', this.onWindowFocus);
+    window.removeEventListener('pointerdown', this.onActivity);
+    window.removeEventListener('pointermove', this.onActivity);
+    window.removeEventListener('wheel', this.onActivity);
+    window.removeEventListener('keydown', this.onActivity);
+    window.removeEventListener('touchstart', this.onActivity);
     this.resizeObserver?.disconnect();
     this.controls.dispose();
     this.scene.traverse((object) => {
