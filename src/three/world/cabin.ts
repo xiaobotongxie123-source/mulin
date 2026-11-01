@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glowTexture, shingleTexture, smokeTexture, stoneTexture, woodTexture } from '../textures';
+import { addCabinDetails } from './cabinDetail';
 
 export interface CabinRefs {
   group: THREE.Group;
@@ -288,6 +289,8 @@ export function buildCabin(scale = 1): CabinRefs {
   const porchLight = new THREE.PointLight('#ffb45e', 5.2, 12, 2);
   porchLight.position.set(0, 2.7, 4.6);
   group.add(porchLight);
+
+  addCabinDetails(group);
 
   return {
     group,

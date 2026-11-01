@@ -1,20 +1,14 @@
-<script lang="ts">
-let introPlayed = false;
-</script>
-
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import BrandMark from '@/components/ui/BrandMark.vue';
 import RuleSheet from '@/components/ui/RuleSheet.vue';
-import StartupCurtain from '@/components/StartupCurtain.vue';
 import { useAmbientAudio } from '@/composables/useAmbientAudio';
 
 const router = useRouter();
 const { enabled, toggle } = useAmbientAudio();
 
-const showCurtain = ref(!introPlayed);
-const revealed = ref(introPlayed);
+const revealed = ref(true);
 const rulesOpen = ref(false);
 const chromeHidden = ref(false);
 
@@ -38,7 +32,6 @@ function onKey(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  introPlayed = true;
   window.addEventListener('keydown', onKey);
 });
 
@@ -137,7 +130,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
       </svg>
     </button>
 
-    <StartupCurtain v-if="showCurtain" @ready="revealed = true" @finished="showCurtain = false" />
     <RuleSheet v-model:open="rulesOpen" />
   </section>
 </template>
@@ -147,6 +139,55 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   position: fixed;
   inset: 0;
   pointer-events: none;
+}
+
+/* A restrained film grade: warm light around the cabin, cool shadows at the
+   edges, and a barely-there grain so the 3D clearing feels photographed. */
+.home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 28% 34% at 61% 56%, rgba(255, 178, 92, 0.11), rgba(255, 178, 92, 0) 70%),
+    radial-gradient(ellipse 58% 66% at 53% 51%, rgba(4, 9, 7, 0) 35%, rgba(3, 7, 5, 0.19) 74%, rgba(2, 5, 4, 0.4) 100%),
+    linear-gradient(180deg, rgba(2, 5, 4, 0.2) 0%, rgba(2, 5, 4, 0) 22%, rgba(2, 5, 4, 0) 70%, rgba(2, 5, 4, 0.3) 100%);
+}
+
+.home::after {
+  content: "";
+  position: fixed;
+  inset: -12%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='.55'/%3E%3C/svg%3E");
+  animation: film-grain 8s steps(6) infinite;
+}
+
+.home > .topbar,
+.home > .hero,
+.home > .side-note,
+.home > .bottom,
+.home > .show-ui {
+  z-index: 1;
+}
+
+@keyframes film-grain {
+  0%, 100% { transform: translate(0, 0); }
+  16% { transform: translate(-1.5%, 1%); }
+  33% { transform: translate(1%, -1.5%); }
+  50% { transform: translate(-0.5%, -1%); }
+  66% { transform: translate(1.5%, 1.5%); }
+  83% { transform: translate(-1%, 0.5%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home::after {
+    animation: none;
+  }
 }
 
 .topbar {

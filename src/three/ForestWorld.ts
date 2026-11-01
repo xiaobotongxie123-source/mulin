@@ -8,6 +8,7 @@ import type { Player, Phase, Faction } from '@/game/types';
 import { buildCabin, type CabinRefs } from './world/cabin';
 import { buildTable, type SeatFigureRefs, type TableRefs } from './world/table';
 import { buildEnvironment, type EnvironmentRefs } from './world/environment';
+import { buildWalkers, type WalkerRefs } from './world/walkers';
 import { clearSeatPoints, setSeatPoints, type SeatPoint } from './projection';
 
 export type WorldMode = 'home' | 'lobby' | 'reveal' | 'table' | 'result';
@@ -27,13 +28,13 @@ interface CameraPreset {
 
 const PRESETS: Record<WorldMode, CameraPreset> = {
   home: {
-    pos: [0.8, 4.2, 30],
-    target: [-3.4, 2.9, -8],
-    fov: 38,
+    pos: [1.0, 4.3, 27.5],
+    target: [-3.2, 2.55, -8],
+    fov: 36,
     orbit: true,
-    minDistance: 18,
-    maxDistance: 38,
-    minPolar: 1.14,
+    minDistance: 17,
+    maxDistance: 36,
+    minPolar: 1.12,
     maxPolar: 1.5,
     azSwing: 0.3,
   },
@@ -84,9 +85,13 @@ const PRESETS: Record<WorldMode, CameraPreset> = {
 };
 
 const NIGHT_FOG = new THREE.Color('#0a1411');
-const DAY_FOG = new THREE.Color('#a7b5a4');
+const DAY_FOG = new THREE.Color('#d7ded2');
 const NIGHT_HEMI_SKY = new THREE.Color('#7f9db3');
-const DAY_HEMI_SKY = new THREE.Color('#d9d2bd');
+const DAY_HEMI_SKY = new THREE.Color('#d7e4e1');
+const NIGHT_HEMI_GROUND = new THREE.Color('#211a12');
+const DAY_HEMI_GROUND = new THREE.Color('#938b76');
+const NIGHT_AMBIENT = new THREE.Color('#2a3a33');
+const DAY_AMBIENT = new THREE.Color('#b8b8a5');
 const WINDOW_NIGHT = new THREE.Color('#ffc06a');
 const WINDOW_DAY = new THREE.Color('#d8c9a8');
 const DEATH_GREY = new THREE.Color('#4a4a42');
@@ -135,6 +140,7 @@ export class ForestWorld {
 
   private env: EnvironmentRefs;
   private cabin: CabinRefs;
+  private walkers: WalkerRefs;
   private table: TableRefs;
   private tableGroup: THREE.Group;
   private tableKey: THREE.PointLight;
@@ -148,12 +154,14 @@ export class ForestWorld {
   private camTween: CamTween | null = null;
   private introActive = true;
   private introStartedAt = 0;
-  private introDuration = 9.5;
+  private introDuration = 4.8;
 
   private hemi: THREE.HemisphereLight;
   private ambient: THREE.AmbientLight;
   private moonLight: THREE.DirectionalLight;
   private sunLight: THREE.DirectionalLight;
+  private pathFill: THREE.DirectionalLight;
+  private eyesClosed = false;
 
   private dayMix = 0.08;
   private dayTarget = 0.08;
@@ -205,9 +213,9 @@ export class ForestWorld {
     this.controls.target.set(0, 7.0, -10);
 
     // ---- lights ---------------------------------------------------------
-    this.hemi = new THREE.HemisphereLight(NIGHT_HEMI_SKY, '#211a12', 0.56);
+    this.hemi = new THREE.HemisphereLight(NIGHT_HEMI_SKY, NIGHT_HEMI_GROUND, 0.56);
     this.scene.add(this.hemi);
-    this.ambient = new THREE.AmbientLight('#2a3a33', 0.38);
+    this.ambient = new THREE.AmbientLight(NIGHT_AMBIENT, 0.38);
     this.scene.add(this.ambient);
 
     this.moonLight = new THREE.DirectionalLight('#b7cde2', 1.3);
@@ -237,6 +245,13 @@ export class ForestWorld {
     rim.target.position.set(0, 3, -8);
     this.scene.add(rim, rim.target);
 
+    // A soft warm bounce from the cabin side lifts the backs of the travellers.
+    // Shadowless and low-contrast: porch spill rather than a second key light.
+    this.pathFill = new THREE.DirectionalLight('#e3c6a6', 1.35);
+    this.pathFill.position.set(-7, 7, 20);
+    this.pathFill.target.position.set(0, 1.1, 0);
+    this.scene.add(this.pathFill, this.pathFill.target);
+
     // ---- world ----------------------------------------------------------
     this.env = buildEnvironment();
     this.scene.add(this.env.sky, this.env.moonHalo, this.env.moon, this.env.stars);
@@ -246,6 +261,11 @@ export class ForestWorld {
     this.cabin = buildCabin(1.12);
     this.cabin.group.position.set(0, 0, -8);
     this.scene.add(this.cabin.group);
+
+    this.walkers = buildWalkers();
+    this.scene.add(this.walkers.group);
+    this.walkers.reset(performance.now() / 1000);
+    this.walkers.update(performance.now() / 1000);
 
     this.table = buildTable(players.map((player) => ({ seat: player.seat, character: player.character })));
     this.tableGroup = this.table.group;
@@ -357,6 +377,8 @@ export class ForestWorld {
     this.family = nextFamily;
     this.introActive = false;
     this.tableGroup.visible = nextFamily === 'table';
+    this.walkers.group.visible = nextFamily === 'cabin';
+    if (nextFamily === 'cabin' && familyChange) this.walkers.reset(performance.now() / 1000);
     this.renderer.toneMappingExposure = nextFamily === 'table' ? 1.2 : 1.08;
 
     if (nextFamily === 'table') {
@@ -447,21 +469,23 @@ export class ForestWorld {
   }
 
   setPhase(phase: Phase, winner: Faction | null): void {
+    // Night is the only phase where the whole table closes their eyes.
+    this.eyesClosed = phase === 'night';
     switch (phase) {
       case 'night':
         this.setDayTarget(0);
         this.setDial(DIAL_NIGHT);
         break;
       case 'dawn':
-        this.setDayTarget(0.34);
+        this.setDayTarget(0.58);
         this.setDial(DIAL_NIGHT);
         break;
       case 'discussion':
-        this.setDayTarget(0.52);
+        this.setDayTarget(0.64);
         this.setDial(DIAL_NIGHT);
         break;
       case 'vote':
-        this.setDayTarget(0.42);
+        this.setDayTarget(0.58);
         this.setDial(DIAL_VOTE);
         break;
       case 'result':
@@ -509,6 +533,7 @@ export class ForestWorld {
       this.elapsed += dt;
       this.updateCamera(dt);
       this.updateAtmosphere(dt);
+      this.walkers.update(performance.now() / 1000);
       this.updateSeats(dt);
       this.controls.update();
       if (!this.firstFrameDone) {
@@ -525,9 +550,9 @@ export class ForestWorld {
       const p = THREE.MathUtils.clamp((performance.now() - this.introStartedAt) / (this.introDuration * 1000), 0, 1);
       const e = easeInOutCubic(p);
       const home = this.presetFor('home');
-      this.camera.position.lerpVectors(new THREE.Vector3(0, 14, 52), new THREE.Vector3(...home.pos), e);
-      this.controls.target.lerpVectors(new THREE.Vector3(0, 7.0, -10), new THREE.Vector3(...home.target), e);
-      this.camera.fov = THREE.MathUtils.lerp(43, home.fov, e);
+      this.camera.position.lerpVectors(new THREE.Vector3(1.2, 6.8, 36), new THREE.Vector3(...home.pos), e);
+      this.controls.target.lerpVectors(new THREE.Vector3(-2.4, 3.4, -8), new THREE.Vector3(...home.target), e);
+      this.camera.fov = THREE.MathUtils.lerp(39, home.fov, e);
       this.camera.updateProjectionMatrix();
       if (p >= 1) {
         this.introActive = false;
@@ -561,14 +586,31 @@ export class ForestWorld {
     this.env.skyUniforms.uDay.value = day;
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.copy(NIGHT_FOG).lerp(DAY_FOG, day);
-    fog.density = THREE.MathUtils.lerp(0.018, 0.0105, day);
+    fog.density = THREE.MathUtils.lerp(0.018, 0.006, day);
 
     const tableLift = this.family === 'table' ? 1 : 0;
-    this.hemi.intensity = THREE.MathUtils.lerp(0.56, 1.08, day) + tableLift * 0.24;
+    const tableDay = tableLift * day;
+    this.hemi.intensity = THREE.MathUtils.lerp(0.56, 1.16, day) + tableLift * 0.24 + tableDay * 0.35;
     this.hemi.color.copy(NIGHT_HEMI_SKY).lerp(DAY_HEMI_SKY, day);
-    this.ambient.intensity = THREE.MathUtils.lerp(0.4, 0.72, day) + tableLift * 0.22;
-    this.moonLight.intensity = THREE.MathUtils.lerp(1.3, 0.34, day);
-    this.sunLight.intensity = day * 0.85;
+    this.hemi.groundColor.copy(NIGHT_HEMI_GROUND).lerp(DAY_HEMI_GROUND, day);
+    this.ambient.intensity = THREE.MathUtils.lerp(0.4, 0.78, day) + tableLift * 0.22 + tableDay * 0.35;
+    this.ambient.color.copy(NIGHT_AMBIENT).lerp(DAY_AMBIENT, day);
+    this.moonLight.intensity = THREE.MathUtils.lerp(1.3, 0.28, day);
+    this.sunLight.intensity = day * (1.18 + tableDay * 1.5);
+    this.renderer.toneMappingExposure = (this.family === 'table' ? 1.2 : 1.08) + day * 0.1 + tableDay * 0.2;
+    if (this.bloom) this.bloom.strength = (this.isMobile ? 0.28 : 0.42) * (1 - day * 0.4);
+    this.pathFill.intensity = this.family === 'cabin' ? 1.35 * (1 - day * 0.6) : 0;
+
+    // Lift the forest out of its night palette as the table enters daylight.
+    // Emissive tint is gentler than flooding the scene with another white light.
+    const pineMat = this.env.pines[0]?.material as THREE.MeshStandardMaterial | undefined;
+    if (pineMat) {
+      pineMat.emissive.set('#8fa77e');
+      pineMat.emissiveIntensity = day * 0.24;
+    }
+    const groundMat = this.env.ground.material as THREE.MeshStandardMaterial;
+    groundMat.emissive.set('#bdb394');
+    groundMat.emissiveIntensity = day * 0.22;
 
     this.env.starMaterial.opacity = 0.85 * (1 - day * 0.96);
     (this.env.moon.material as THREE.SpriteMaterial).opacity = 1 - day * 0.75;
@@ -589,17 +631,17 @@ export class ForestWorld {
 
     // candles and fire
     const flicker = 0.88 + Math.sin(t * 8.4) * 0.06 + Math.sin(t * 21.7) * 0.035;
-    this.table.candleLight.intensity = 7 * flicker * (1 - day * 0.45);
-    this.tableKey.intensity = 58 * (1 - day * 0.52) * (0.97 + Math.sin(t * 3.7) * 0.03);
+    this.table.candleLight.intensity = 7 * flicker * (1 - day * 0.6);
+    this.tableKey.intensity = 58 * (1 - day * 0.58) * (0.97 + Math.sin(t * 3.7) * 0.03);
     this.tableRim.intensity = 26 * (1 - day * 0.62);
-    this.tableHalo.intensity = 38 * (1 - day * 0.42);
+    this.tableHalo.intensity = 38 * (1 - day * 0.55);
     for (let i = 0; i < this.table.flames.length; i += 1) {
       const flame = this.table.flames[i];
       const wobble = 1 + Math.sin(t * 11 + i * 2.1) * 0.12;
       flame.scale.set(0.25 * wobble, 0.55 * (1 + Math.sin(t * 9 + i) * 0.1), 1);
       flame.position.y = (flame.userData.baseY as number) + Math.sin(t * 7 + i) * 0.02;
     }
-    this.env.fireLight.intensity = 8.5 * (0.9 + Math.sin(t * 6.2) * 0.06 + Math.sin(t * 13.1) * 0.04);
+    this.env.fireLight.intensity = 8.5 * (0.9 + Math.sin(t * 6.2) * 0.06 + Math.sin(t * 13.1) * 0.04) * (1 - day * 0.45);
     for (let i = 0; i < this.env.fireFlames.length; i += 1) {
       const flame = this.env.fireFlames[i];
       const wobble = 1 + Math.sin(t * 9.5 + i * 1.7) * 0.16;
@@ -632,11 +674,12 @@ export class ForestWorld {
     for (const [index, sprite] of this.env.mist.entries()) {
       const phase = sprite.userData.phase as number;
       sprite.position.x += Math.sin(t * 0.05 + phase) * 0.004;
-      (sprite.material as THREE.SpriteMaterial).opacity = 0.05 * (1 + Math.sin(t * 0.11 + index)) * (1 - day * 0.5);
+      (sprite.material as THREE.SpriteMaterial).opacity = 0.05 * (1 + Math.sin(t * 0.11 + index)) * (1 - day * 0.7);
     }
     for (const cloud of this.env.clouds) {
       cloud.position.x += (cloud.userData.drift as number) * dt;
       if (cloud.position.x > 62) cloud.position.x = -62;
+      (cloud.material as THREE.SpriteMaterial).opacity = 0.075 * (1 - day * 0.55);
     }
 
     this.dialColor.lerp(this.dialTarget, Math.min(1, dt * 1.5));
@@ -660,17 +703,29 @@ export class ForestWorld {
         figure.faceMat.color.copy(state.baseFace).lerp(DEATH_GREY, dead * 0.9);
         figure.lanternMat.color.copy(state.baseLantern).lerp(new THREE.Color('#2f2b24'), dead);
         (figure.lanternGlow.material as THREE.SpriteMaterial).opacity = 0.75 * (1 - dead);
-        figure.group.rotation.z = dead * 0.16;
-        figure.group.position.y = figure.baseY - dead * 0.12;
       } else {
         figure.bodyMat.color.copy(state.baseBody);
         figure.hoodMat.color.copy(state.baseHood);
         figure.faceMat.color.copy(state.baseFace);
         figure.lanternMat.color.copy(state.baseLantern);
         (figure.lanternGlow.material as THREE.SpriteMaterial).opacity = 0.75;
-        figure.group.rotation.z = 0;
-        figure.group.position.y = figure.baseY;
       }
+
+      // Alive players stand in front of their chair. Eliminated players settle
+      // onto the cushion, with their legs folded toward the table.
+      const pose = THREE.MathUtils.smoothstep(dead, 0, 1);
+      figure.bodyGroup.position.y = -0.44 * pose;
+      figure.bodyGroup.position.z = 0.5 - 0.5 * pose;
+      figure.bodyGroup.rotation.x = 0.12 * pose;
+      figure.bodyGroup.rotation.z = 0.12 * pose;
+      figure.leftLeg.rotation.x = -1.2 * pose;
+      figure.rightLeg.rotation.x = -1.2 * pose;
+      figure.group.position.y = figure.baseY;
+      figure.group.rotation.z = state.dead ? 0.025 * pose : 0;
+
+      const eyesShut = this.eyesClosed || dead > 0.4;
+      figure.openEyes.visible = !eyesShut;
+      figure.closedEyes.visible = eyesShut;
 
       const speaking = this.speaker === seat && !state.dead;
       const selected = this.selected === seat && !state.dead;

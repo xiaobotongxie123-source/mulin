@@ -17,10 +17,12 @@ import RoleIcon from '@/components/ui/RoleIcon.vue';
 import TravelerPortrait from '@/components/ui/TravelerPortrait.vue';
 import AgentStatus from '@/components/ui/AgentStatus.vue';
 import { checkAgentRuntime } from '@/game/agentClient';
+import { useVoiceNarrator } from '@/composables/useVoiceNarrator';
 
 const router = useRouter();
 const store = useGameStore();
 const { enabled, toggle, playCue } = useAmbientAudio();
+const { voice: voiceNarration, toggleVoice } = useVoiceNarrator(store);
 
 let controller: GameController | null = null;
 let resultTimer = 0;
@@ -57,9 +59,9 @@ const seatName = (seat: number): string => {
 
 const currentSpeech = computed(() => {
   if (!store.speakerSeat || !store.speaking) return null;
+  const player = store.players.find((item) => item.seat === store.speakerSeat);
   const entry = [...store.logs].reverse().find((log) => log.kind === 'speech' && log.seat === store.speakerSeat);
   if (!entry) return null;
-  const player = store.players.find((item) => item.seat === store.speakerSeat);
   return { text: entry.text, player, seat: store.speakerSeat };
 });
 
@@ -201,6 +203,17 @@ onBeforeUnmount(() => {
             {{ value }}×
           </button>
         </div>
+        <button
+          class="ctrl icon-ctrl"
+          type="button"
+          :class="{ 'is-on': voiceNarration.enabled }"
+          :aria-label="voiceNarration.enabled ? '关闭角色语音' : '开启角色语音'"
+          :title="voiceNarration.provider === 'browser' ? '角色语音 · 浏览器回退' : '角色语音 · 灵矽AI'"
+          @click="toggleVoice"
+        >
+          <svg v-if="voiceNarration.enabled" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path d="M15.5 3.5h5M18 1v5" /></svg>
+          <svg v-else viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="m17 9 4 6M21 9l-4 6" /></svg>
+        </button>
         <button class="ctrl icon-ctrl" type="button" :class="{ 'is-on': enabled }" :aria-label="enabled ? '关闭环境声' : '开启环境声'" @click="toggle">
           <svg v-if="enabled" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>
           <svg v-else viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" /><path d="m17 9 4 6M21 9l-4 6" /></svg>

@@ -9,7 +9,22 @@
  */
 export const AGENT_PROFILES = [
   {
+    seat: 1,
+    id: 'shen-yan',
+    name: '沈砚',
+    title: '制图师',
+    tone: 'calm',
+    voiceId: '2029740684041216001',
+    voicePitch: 0.82,
+    voiceSpeed: 0.95,
+    persona:
+      '你是沈砚，山舍里的制图师。你说话克制，习惯先确认方向再下结论；你会把山路、河道和纸上的线条当作判断人的线索。你尊重事实，也愿意为自己的判断负责。',
+  },
+  {
     seat: 2,
+    voiceId: '2bdf7391fe9647ebb8483f267a86d7b4',
+    voicePitch: 1.02,
+    voiceSpeed: 0.96,
     id: 'bai-tang',
     name: '白棠',
     title: '药师',
@@ -19,6 +34,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 3,
+    voiceId: 'f566cb22237b46e7bc90924fa285bcb8',
+    voicePitch: 0.86,
+    voiceSpeed: 0.93,
     id: 'lu-li',
     name: '陆离',
     title: '猎户',
@@ -28,6 +46,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 4,
+    voiceId: 'b6a1aa749bd94c9c811444443ae1fa5c',
+    voicePitch: 0.98,
+    voiceSpeed: 0.9,
     id: 'su-jiu',
     name: '苏九',
     title: '说书人',
@@ -37,6 +58,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 5,
+    voiceId: '9d91653b2adf4aa9ad97e1c8f63fbda3',
+    voicePitch: 0.78,
+    voiceSpeed: 0.9,
     id: 'gu-qing',
     name: '顾青',
     title: '守林人',
@@ -46,6 +70,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 6,
+    voiceId: 'e4ddd3f3271c4f51a36c0889799aaeea',
+    voicePitch: 1.08,
+    voiceSpeed: 0.97,
     id: 'jiang-mian',
     name: '江眠',
     title: '旅店老板',
@@ -55,6 +82,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 7,
+    voiceId: '2029739560654675970',
+    voicePitch: 0.92,
+    voiceSpeed: 1.03,
     id: 'wen-ci',
     name: '温辞',
     title: '抄经人',
@@ -64,6 +94,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 8,
+    voiceId: '2003718048531505154',
+    voicePitch: 1.12,
+    voiceSpeed: 1.03,
     id: 'a-ruo',
     name: '阿箬',
     title: '采菇人',
@@ -73,6 +106,9 @@ export const AGENT_PROFILES = [
   },
   {
     seat: 9,
+    voiceId: 'a42e04fcefac4e9492581fbc95f3fce3',
+    voicePitch: 0.84,
+    voiceSpeed: 0.92,
     id: 'pei-zhao',
     name: '裴照',
     title: '提灯人',

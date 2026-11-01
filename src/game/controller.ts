@@ -26,6 +26,7 @@ import {
   type AgentSpeechContext,
 } from '@/game/agentClient';
 import type { Claim, HumanAction, Prompt, SeerCheck } from '@/game/types';
+import { hasSpeakableText, speechPauseMs, voiceNarration, waitForNarrationDone } from '@/game/voice';
 
 class AbortError extends Error {
   constructor() {
@@ -103,6 +104,23 @@ export class GameController {
     }
     this.pending.clear();
     this.store.cancelPrompt();
+  }
+
+  /**
+   * Synthesize before the line is visible, then hold the controller until the
+   * narrator reports that this exact line finished playing. This keeps text
+   * and voice on the same speaker instead of letting the voice trail a queue
+   * behind the conversation.
+   */
+  private async speakLine(seat: number, text: string, claim?: Claim): Promise<void> {
+    // Show the line immediately and let the narrator fetch its voice. The
+    // next speaker is held until this exact line's audio actually finishes.
+    const logId = this.applySpeech(seat, text, claim);
+    if (voiceNarration.enabled && hasSpeakableText(text)) {
+      await waitForNarrationDone(logId, speechPauseMs(text) + 15_000);
+      return;
+    }
+    await this.wait(420);
   }
 
   private wait(ms: number): Promise<void> {
@@ -422,6 +440,7 @@ export class GameController {
       for (const seat of botSeats) agentLines.set(seat, this.agentSpeech(seat));
     }
 
+
     for (const seat of order) {
       if (this.aborted) return;
       const player = store.players.find((item) => item.seat === seat);
@@ -436,35 +455,34 @@ export class GameController {
         });
         if (action.auto) {
           const speech = botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
-          this.applySpeech(seat, speech.text, speech.claim);
-          await this.wait(500);
+          await this.speakLine(seat, speech.text, speech.claim);
         } else {
           const text = (action.text ?? '').trim() || '过。';
           const claim = parseHumanClaim(text, seat, store.round);
-          this.applySpeech(seat, text, claim ?? undefined);
-          await this.wait(400);
+          await this.speakLine(seat, text, claim ?? undefined);
         }
       } else {
         await this.delay(900, 1500);
         const speech = agentLines.has(seat)
           ? await agentLines.get(seat)
           : botSpeech(this.ctx(player.role === 'seer' ? player.seat : undefined), seat);
-        this.applySpeech(seat, speech?.text ?? '……', speech?.claim);
-        await this.wait(420);
+        const line = speech?.text ?? '……';
+        await this.speakLine(seat, line, speech?.claim);
       }
     }
     store.speakerSeat = null;
     store.speaking = false;
   }
 
-  private applySpeech(seat: number, text: string, claim?: Claim): void {
+  private applySpeech(seat: number, text: string, claim?: Claim): number {
     const store = this.store;
-    store.addLog('speech', text, seat);
+    const logId = store.addLog('speech', text, seat);
     if (claim) {
       store.addClaim(claim);
       if (!this.claimedSeats.includes(seat)) this.claimedSeats.push(seat);
       store.addLog('public', `${seat} 号自称预言家，指认 ${claim.target} 号是狼人。`);
     }
+    return logId;
   }
 
   private async vote(): Promise<void> {
@@ -548,11 +566,11 @@ export class GameController {
           deadline: Date.now() + 30_000,
         });
         const text = (action.text ?? '').trim();
-        if (text) store.addLog('speech', text, seat);
-        await this.wait(300);
+        if (text) await this.speakLine(seat, text);
+        else await this.wait(420);
       } else {
         await this.wait(900);
-        store.addLog('speech', botLastWords(), seat);
+        await this.speakLine(seat, botLastWords());
       }
     }
   }

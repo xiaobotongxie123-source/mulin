@@ -51,12 +51,18 @@ function payload(profile) {
     llmModelId: modelId,
     memModelId,
     intentModelId,
+    ttsVoiceId: profile.voiceId,
     systemPrompt: agentSystemPrompt(profile),
     extra: {
       llm: {
         temperature: 0.95,
         top_p: 0.95,
         max_tokens: 180,
+      },
+      voice: {
+        volume: 100,
+        speed: profile.voiceSpeed ?? 1,
+        pitch: profile.voicePitch ?? 1,
       },
     },
   };

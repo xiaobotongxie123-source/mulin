@@ -14,8 +14,8 @@
 
 ## 0. 当前接入状态
 
-- 已通过灵矽平台 API 创建 **8 个角色智能体**，命名 `暮林夜话·白棠` … `暮林夜话·裴照`，模型为 **deepseek-v4-flash**。ID 记录在 `server/agent-registry.json`。
-- 大厅会显示「灵矽智能体 · 8 位已建」。
+- 已通过灵矽平台 API 创建 **9 个角色智能体**，命名 `暮林夜话·沈砚` … `暮林夜话·裴照`，模型为 **deepseek-v4-flash**。ID 记录在 `server/agent-registry.json`。
+- 大厅会显示「灵矽智能体 · 9 位已建」。
 - **灵矽平台 API Key 只能管理智能体，不能直接当模型推理 Key 用**。牌桌要实时生成发言，还需要一个 OpenAI 兼容的模型入口。
 
 | 配置 | 用途 | 是否足够让牌桌发言 |
@@ -31,7 +31,7 @@ AGENT_LLM_MODEL=deepseek/deepseek-v4-flash-20260731
 AGENT_LLM_API_KEY=<七牛 MaaS API Key>
 ```
 
-如果你已经在灵矽控制台给智能体开通了模型，仍然需要在「七牛云 / AI 大模型推理 / API Key」创建一个模型 Key，或使用 LinxClaw 的 OpenAI 端点。当前游戏的浏览器端不直接连接灵矽设备 WebSocket，原因见下文第 1 节。
+如果你已经在灵矽控制台给智能体开通了模型，仍然需要在「七牛云 / AI 大模型推理 / API Key」创建一个模型 Key，或使用 LinxClaw 的 OpenAI 端点。浏览器端不直接连接灵矽设备 WebSocket；服务端 `/api/tts` 使用虚拟设备连接，见第 4.4 节。
 
 ---
 
@@ -63,7 +63,7 @@ AGENT_LLM_API_KEY=<七牛 MaaS API Key>
 └──────────────────────┘
 
 另：npm run agents:provision
-    Xrobot 智能体 API  ← 创建 / 更新 8 个角色智能体（可选）
+    Xrobot 智能体 API  ← 创建 / 更新 9 个角色智能体（可选）
 ```
 
 - **游戏内发言**：走 OpenAI 兼容模型，8 个角色各自拥有独立人设、私有信息和发言策略。
@@ -109,7 +109,7 @@ npm run dev
 
 | 状态 | 含义 |
 | --- | --- |
-| 智能体在线 · 8 位 | 后端已配置 Key，发言由模型生成 |
+| 智能体在线 · 9 位 | 后端已配置 Key，发言由模型生成，9 个音色可用 |
 | 智能体演示 · 本地模拟 | `AGENT_LLM_MOCK=1`，无 Key 的联调模式 |
 | 本地策略 | 没有可用 Key，沿用规则模板 |
 | 智能体降级 | 请求失败，本轮回退本地发言 |
@@ -122,7 +122,7 @@ npm run dev
 AGENT_LLM_MOCK=1 npm run dev
 ```
 
-这不会调用任何远程模型，只用于验证前后端链路和 8 个角色的 UI 状态。
+这不会调用任何远程模型，只用于验证前后端链路和 9 个角色的 UI 状态。
 
 ---
 
@@ -133,22 +133,23 @@ AGENT_LLM_MOCK=1 npm run dev
 ```bash
 cp .env.example .env
 # 写入 XROBO_API_KEY=...
-npm run agents:dry-run       # 只打印 8 个请求体，不发请求
-npm run agents:provision     # 真正创建 / 更新 8 个智能体
+npm run agents:dry-run       # 只打印 9 个请求体，不发请求
+npm run agents:provision     # 真正创建 / 更新 9 个智能体，并写入 9 套音色
 ```
 
 脚本行为：
 
 1. `GET /xiaozhi/agent/list?limit=100` 拉取当前用户的智能体；
-2. 按 `agentName` 精确匹配 `暮林夜话·白棠` 等 8 个名字；
+2. 按 `agentName` 精确匹配 `暮林夜话·白棠` 等 9 个名字；
 3. 不存在则 `POST /xiaozhi/agent` 创建；
-4. 已存在则 `PUT /xiaozhi/agent/{id}` 更新人设与提示词；
+4. 已存在则 `PUT /xiaozhi/agent/{id}` 更新人设、提示词、`ttsVoiceId` 与语速/音高；
 5. 把返回的 ID 写入 `server/agent-registry.json`（不包含 Key）。
 
-创建出的 8 个智能体：
+创建出的 9 个智能体：
 
 | 座位 | 名字 | 职业 | 语气 |
 | --- | --- | --- | --- |
+| 01 | 沈砚 | 制图师 | 人类玩家的 TTS 音色 |
 | 02 | 白棠 | 药师 | 温和、留有余地 |
 | 03 | 陆离 | 猎户 | 短、直、有压迫感 |
 | 04 | 苏九 | 说书人 | 从容、戏谑、爱讲故事 |
@@ -198,8 +199,9 @@ GET /api/health
   "configured": true,
   "provider": "openai-compatible",
   "model": "deepseek-v3",
-  "agents": 8,
-  "provisioning": true
+  "agents": 9,
+  "provisioning": true,
+  "tts": { "provider": "xrobot", "configured": true }
 }
 ```
 
@@ -229,6 +231,28 @@ Content-Type: application/json
 
 `POST` 的请求体上限 64KB；服务端只使用 `server/agents.mjs` 中的固定人设，不接受客户端传入 system prompt。
 
+### 4.4 角色语音（灵矽AI TTS）
+
+灵矽公开 API 的 REST 部分没有单独的“文本转语音”接口；设备 WebSocket 协议支持 TTS。项目使用服务端桥接：
+
+```
+GameController 写入 speech 日志（文字立即可读）
+  → useVoiceNarrator 请求 POST /api/tts { seat, text }
+  → server/tts.mjs：绑定设备 WebSocket + listen.detect.text_response
+  → 16 kHz PCM → WAV
+  → 浏览器播放；播完这一句才进入下一位发言
+```
+
+- 每个座位在 `server/voice-profiles.mjs` 中有独立的音色配置；服务端在 `listen.detect` 的 `agent_params.voice.id/speed/pitch` 中逐条切换音色（这是灵矽文档支持的会话内音色切换）。
+- WebSocket 使用一个已绑定到账号的设备 MAC，默认 `02:00:00:00:00:02`，可用 `XROBO_TTS_DEVICE_MAC` 覆盖；所有 TTS 请求在服务端串行，避免设备会话抢占。
+- 合成结果按 `seat + voiceId + text` 缓存，减少重复读同一句。
+- 如果设备未绑定，服务端会拒绝播放“请去绑定智能体”的提示音，前端自动回退浏览器语音。
+- 灵矽 TTS 超过约 7 秒未返回时，前端会取消该请求并立即改播浏览器中文语音，避免牌桌为了等待远端合成而卡住。
+- `POST /api/tts` 返回 `audio/wav`；服务端 TTS 未配置/失败时，前端自动回退到 `speechSynthesis`，仍按角色设置不同音高和语速。
+- 顶部扬声器按钮可关闭/开启角色语音；关闭后游戏节奏恢复原速。
+- 语音开启时文字先出现，当前句音频就绪后播放；`GameController` 会等待该句音频真正播放结束才进入下一位，避免“声音慢一个人”。
+- 关闭语音后不请求合成、不等待，恢复原来的短停顿与快节奏。
+
 ---
 
 ## 5. 生产部署
@@ -257,7 +281,9 @@ AGENT_LLM_API_KEY=... AGENT_LLM_BASE_URL=... npm run serve
 - **请求体上限**：64KB。
 - **超时与回退**：模型不可用不会卡死牌局。
 - **未做鉴权 / 限流**：如果部署到公网，应在反向代理或服务端加登录、IP 限流和用量控制。
-- **Xrobot 智能体不等于牌桌大脑**：它们共享人设，可接到灵矽设备/控制台；牌桌发言使用 OpenAI 兼容模型。若未来灵矽开放智能体文本对话 API，只需替换 `server/handler.mjs` 的 `callLlm`，前端不需要改。
+- **Xrobot 智能体双用**：人设用于灵矽控制台，TTS 桥接用于角色语音；牌桌发言仍可使用 OpenAI 兼容模型。
+- **TTS 设备凭证留在服务端**：浏览器只拿 WAV，不接触 `XROBO_API_KEY`、MAC 或 WebSocket 凭据。
+- **TTS 输入上限**：单条 260 字符，音频上限 4MB，单次超时 22s。
 
 ---
 
@@ -265,6 +291,6 @@ AGENT_LLM_API_KEY=... AGENT_LLM_BASE_URL=... npm run serve
 
 1. 把投票和夜间行动也交给智能体，用结构化 JSON 约束候选目标。
 2. 给每个智能体接长期记忆，跨局记住玩家习惯。
-3. 接 Linx 硬件：把牌桌发言通过 Xrobot WebSocket 播成语音（每个智能体绑定一台设备/一个虚拟终端）。
+3. 接 Linx 硬件：把 `/api/tts` 已生成的语音转发到实体设备，或让每个智能体绑定自己的终端。
 4. 多模型混编：白棠用 Qwen、陆离用 DeepSeek、苏九用 MiniMax，让音色和文风差异更大。
 5. 发言质量评估：记录每次生成耗时、失败率、角色一致性，做 A/B 提示词。
